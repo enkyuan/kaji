@@ -28,3 +28,7 @@ jobs:
       - run: bun --filter=@irogane/kaji run package:smoke
       - run: bun --filter=@irogane/kaji-example-refund run typecheck
       - run: bun run example:refund
+      - run: bun --filter=@kaji/docs run format:check
+      - run: bun --filter=@kaji/docs run lint
+      - run: bun --filter=@kaji/docs run typecheck
+      - run: bun --filter=@kaji/docs run build

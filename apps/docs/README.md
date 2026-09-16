@@ -33,8 +33,9 @@ Open [http://localhost:3000](http://localhost:3000).
 Documentation lives in `content/`. The collection schema in
 `src/content.config.ts` controls frontmatter and page metadata.
 
-Keep beta and experimental surfaces labeled explicitly; do not turn local or
-unprotected evidence into a release claim.
+Every code example should reflect the actual public API of
+`@irogane/kaji`. Do not document a symbol that is not exported from
+`packages/ts/src/index.ts`.
 
 ## Checks
 

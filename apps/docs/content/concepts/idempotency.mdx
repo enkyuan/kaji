@@ -1,0 +1,45 @@
+---
+title: Idempotency
+description: The caller supplies an idempotency key; Kaji uses it to prevent duplicate execution.
+---
+
+Every execution request includes a caller-supplied `idempotencyKey`.
+Kaji never invents one. One key represents one intended operation for a
+given capability and principal.
+
+```ts
+await kaji.execute(refund, {
+  input: { paymentId: "pay_123", amount: 750 },
+  principalId: "user_123",
+  idempotencyKey: "refund_req_123",
+});
+```
+
+## What happens on a repeated call
+
+| Existing state for this key                                                     | Same request                                                 |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| none                                                                            | executes                                                     |
+| claimed, still running                                                          | waits for and returns that outcome                           |
+| completed (`succeeded`, `failed`, `denied`, `rejected`, `cancelled`, `unknown`) | returns the recorded outcome; does not run `execute()` again |
+| different input, same key                                                       | rejected as a conflict (`status: "failed"`)                  |
+
+A concurrent or retried call with the same capability, principal,
+idempotency key, and input never runs `execute()` a second time — it
+receives the same recorded result. Reusing a key with different input,
+a different capability, or a different principal is a conflict and
+settles `failed` without executing.
+
+`unknown` follows the same replay rule as every other outcome: retrying
+an operation that settled `unknown` does not call `execute()` again and
+does not resolve the ambiguity. Kaji has no automatic retry or
+reconciliation mechanism — if application code decides an unknown
+operation should be attempted again, it must use a new idempotency key
+for a new, deliberate attempt, after confirming out-of-band whether the
+original side effect happened.
+
+## Next
+
+[Execution outcomes](/docs/concepts/outcomes) explains the `status`
+values referenced in the table above. [Custom store](/docs/guides/custom-store)
+explains where this claim/replay state is kept.

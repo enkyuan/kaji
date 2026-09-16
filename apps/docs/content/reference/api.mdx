@@ -1,0 +1,198 @@
+---
+title: API Reference
+description: Every public export of @irogane/kaji.
+---
+
+This page documents every symbol exported from `@irogane/kaji`'s root
+entry point. Nothing else is public.
+
+```ts
+import { capability, createKaji, knownFailure, memoryStore } from "@irogane/kaji";
+
+import type {
+  Capability,
+  ExecutionContext,
+  ExecutionEvidence,
+  ExecutionRequest,
+  ExecutionResult,
+  ExecutionStore,
+  ExecutionClaim,
+  ClaimResult,
+  StoredExecution,
+} from "@irogane/kaji";
+```
+
+## capability()
+
+Declares one application action.
+
+```ts
+function capability<Input, Result>(definition: {
+  name: string;
+  input: { parse(input: unknown): Input };
+  authorize: (request: { principalId: string; input: Input }) => boolean | Promise<boolean>;
+  approval?: (request: { principalId: string; input: Input }) => boolean;
+  execute: (input: Input, context: ExecutionContext) => Result | Promise<Result>;
+}): Capability<Input, Result>;
+```
+
+See [capabilities](/docs/concepts/capabilities).
+
+## createKaji()
+
+Creates the executor. `kaji.execute()` is the one canonical entry point
+that validates, claims the idempotency key, authorizes, obtains
+approval, runs the capability at most once, and records the outcome.
+
+```ts
+function createKaji(options: {
+  store: ExecutionStore;
+  approve?: (request: {
+    capability: string;
+    principalId: string;
+    input: unknown;
+    idempotencyKey: string;
+  }) =>
+    { approved: boolean; evidence?: unknown } | Promise<{ approved: boolean; evidence?: unknown }>;
+  timeoutMs?: number;
+}): {
+  execute<Input, Result>(
+    capability: Capability<Input, Result>,
+    request: ExecutionRequest,
+  ): Promise<ExecutionResult<Result>>;
+};
+```
+
+`timeoutMs` bounds how long Kaji waits for an execution. It does not
+roll back a side effect or prove that a remote operation did not occur —
+see [execution outcomes](/docs/concepts/outcomes).
+
+## knownFailure()
+
+Marks an `execute()` failure as definitively known rather than
+ambiguous, so Kaji settles `failed` instead of `unknown`.
+
+```ts
+function knownFailure(cause: unknown): Error;
+```
+
+See [knownFailure()](/docs/concepts/outcomes#knownfailure).
+
+## memoryStore()
+
+The process-local, in-memory reference `ExecutionStore`.
+
+```ts
+function memoryStore(): ExecutionStore;
+```
+
+See [custom store](/docs/guides/custom-store).
+
+## Capability\<Input, Result\>
+
+```ts
+type Capability<Input, Result> = {
+  readonly name: string;
+};
+```
+
+The value returned by `capability()`. Only `name` is public.
+
+## ExecutionContext
+
+```ts
+type ExecutionContext = {
+  principalId: string;
+  idempotencyKey: string;
+  signal: AbortSignal;
+};
+```
+
+Passed to `execute()`. `signal` combines the caller's signal and the
+executor's optional `timeoutMs` using native `AbortSignal` semantics.
+
+## ExecutionRequest
+
+```ts
+type ExecutionRequest = {
+  input: unknown;
+  principalId: string;
+  idempotencyKey: string;
+  signal?: AbortSignal;
+};
+```
+
+The second argument to `kaji.execute()`. `principalId` and
+`idempotencyKey` must be non-empty strings.
+
+## ExecutionResult\<Result\>
+
+```ts
+type ExecutionResult<Result> =
+  | { status: "succeeded"; result: Result; evidence: ExecutionEvidence }
+  | {
+      status: "denied" | "rejected" | "failed" | "cancelled";
+      error: unknown;
+      evidence: ExecutionEvidence;
+    }
+  | { status: "unknown"; error: unknown; evidence: ExecutionEvidence };
+```
+
+What `kaji.execute()` resolves with for every governed execution. See
+[execution outcomes](/docs/concepts/outcomes).
+
+## ExecutionEvidence
+
+```ts
+type ExecutionEvidence = {
+  executionId: string;
+  capability: string;
+  principalId: string;
+  idempotencyKey: string;
+  inputFingerprint: string;
+};
+```
+
+The minimal identity attached to every `ExecutionResult`.
+
+## ExecutionStore
+
+```ts
+type ExecutionStore = {
+  claim(claim: ExecutionClaim): Promise<ClaimResult>;
+  record(execution: StoredExecution): Promise<void>;
+};
+```
+
+The extension point for a durable store. See
+[custom store](/docs/guides/custom-store).
+
+## ExecutionClaim, ClaimResult, StoredExecution
+
+```ts
+type ExecutionClaim = {
+  capability: string;
+  principalId: string;
+  idempotencyKey: string;
+  inputFingerprint: string;
+};
+
+type StoredExecution = ExecutionResult<unknown>;
+
+type ClaimResult =
+  | { status: "claimed"; executionId: string }
+  | { status: "existing"; outcome: Promise<StoredExecution> }
+  | { status: "conflict"; executionId: string };
+```
+
+Exported only because a custom `ExecutionStore` implementation needs
+these types to satisfy the contract. See
+[custom store](/docs/guides/custom-store).
+
+## What Kaji does not export
+
+There is no `unknownOutcome()` — a thrown or rejected `execute()` call
+settles `unknown` by default, so no explicit call is needed to produce
+it. There is no `Kaji` executor type export; use
+`ReturnType<typeof createKaji>` if you need to name it. There is no
+identity, session, event, or workflow type of any kind.

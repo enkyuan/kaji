@@ -7,8 +7,8 @@ import { ArrowRight, Copy } from "reicon";
 const headings = [
   { depth: 2, slug: "what-is-kaji", text: "What is Kaji?" },
   { depth: 2, slug: "how-it-works", text: "How it works" },
-  { depth: 2, slug: "built-for-bounded-agents", text: "Built for bounded agents" },
-  { depth: 2, slug: "start-with-typescript", text: "Start with TypeScript" },
+  { depth: 2, slug: "core-guarantees", text: "Core guarantees" },
+  { depth: 2, slug: "install", text: "Install" },
 ];
 const arrowIcon = ArrowRight.toSvg({
   size: 14,
@@ -23,7 +23,7 @@ const copyIcon = Copy.toSvg({
 
 <Base
   title="Kaji"
-  description="Build bounded agents in TypeScript."
+  description="Kaji is an embedded execution layer for safely turning agent-requested application actions into real state changes."
   activeHref="/"
   headings={headings}
 >
@@ -31,22 +31,22 @@ const copyIcon = Copy.toSvg({
     <header>
       <div class="heading-container">
         <h1 class="hero-title">
-          Build agents<span class="hero-stop">.</span><br />
-          In <span class="forged-underline">your runtime.</span>
+          Execute agent actions<span class="hero-stop">.</span><br />
+          <span class="forged-underline">Safely.</span>
         </h1>
         <button
           class="install-snippet"
           type="button"
-          aria-label="Copy local alpha install command"
-          data-copy="npm i ./irogane-kaji-0.3.0-alpha.1.tgz zod"
+          aria-label="Copy install command"
+          data-copy="npm install @irogane/kaji"
         >
-          <code>npm i ./irogane-kaji-0.3.0-alpha.1.tgz zod</code>
+          <code>npm install @irogane/kaji</code>
           <Fragment set:html={copyIcon} />
         </button>
       </div>
       <p class="tagline">
-        Kaji is an embeddable TypeScript agent runtime with event-sourced sessions, bounded tool
-        execution, and pluggable model providers.
+        Kaji is an embedded execution layer for safely turning agent-requested application
+        actions into real state changes.
       </p>
     </header>
 
@@ -55,72 +55,55 @@ const copyIcon = Copy.toSvg({
     <section>
       <h2 id="what-is-kaji">What is Kaji?</h2>
       <p>
-        Kaji gives your TypeScript application the runtime loop between a user message, a model
-        provider, and the tools an agent may call. It is a library, not a hosted control plane, so
-        identity, credentials, storage, and policy stay with your application.
+        Your application already has functions like <code>refundPayment()</code> or
+        <code>cancelBooking()</code>. When an agent, automation, or MCP tool call can trigger one
+        of those functions, it needs caller identity, input validation, authorization, human
+        approval, and protection against duplicate or ambiguous side effects. Kaji standardizes
+        that boundary once, inside your application, instead of once per caller.
       </p>
       <p>
-        The TypeScript SDK is the primary path in these docs. A Python SDK implements the same core
-        event and tool contracts for applications that need cross-language replay.
+        Kaji is a TypeScript library with zero runtime dependencies. It is not an agent framework,
+        model SDK, workflow engine, MCP runtime, or identity provider — your application keeps
+        its own domain logic, authorization policy, and remote calls.
       </p>
     </section>
 
     <section>
       <h2 id="how-it-works">How it works</h2>
       <ol>
-        <li><strong>Build</strong> a runtime with a provider, tools, and an optional policy.</li>
-        <li><strong>Send</strong> a user turn with explicit caller context.</li>
-        <li><strong>Validate</strong> each model-selected tool call before execution.</li>
-        <li><strong>Store</strong> the resulting events in append order.</li>
-        <li><strong>Replay</strong> those events into deterministic session state.</li>
+        <li><strong>Define</strong> a capability: one application action, its input schema, and its authorization rule.</li>
+        <li><strong>Execute</strong> it through Kaji with an explicit caller identity and idempotency key.</li>
+        <li><strong>Kaji validates</strong> the input before anything else runs.</li>
+        <li><strong>Kaji claims</strong> the idempotency key so duplicates don't execute twice.</li>
+        <li><strong>Kaji authorizes and approves</strong>, then calls your <code>execute</code> function at most once.</li>
       </ol>
     </section>
 
     <section>
-      <h2 id="built-for-bounded-agents">Built for bounded agents</h2>
+      <h2 id="core-guarantees">Core guarantees</h2>
       <ul>
-        <li><strong>Event-sourced sessions</strong> make state inspectable and replayable.</li>
-        <li><strong>Risk-classified tools</strong> keep approval and identity at the call boundary.</li>
-        <li><strong>Provider adapters</strong> normalize failures without leaking vendor internals.</li>
-        <li><strong>Execution limits</strong> bound turns, tool concurrency, payloads, and shutdown.</li>
-        <li><strong>Typed composition</strong> keeps providers, tools, and runtime context explicit.</li>
+        <li><strong>Explicit identity</strong> — every execution requires a caller-supplied <code>principalId</code>; Kaji never infers one.</li>
+        <li><strong>Validation before execution</strong> — invalid input never reaches your authorization or execute code.</li>
+        <li><strong>Duplicate suppression</strong> — a repeated idempotency key replays the recorded result instead of running again.</li>
+        <li><strong>Explicit failure semantics</strong> — <code>succeeded</code>, <code>failed</code>, and <code>unknown</code> are distinct; an ambiguous side effect is never silently retried.</li>
+        <li><strong>Fail-closed approval</strong> — a missing or rejected approval decision prevents execution.</li>
       </ul>
-    </section>
-
-    <section>
-      <h2 id="start-with-typescript">Start with TypeScript</h2>
-      <div class="runtime-options">
-        <div>
-          <h3>TypeScript</h3>
-          <code>npm install ./irogane-kaji-0.3.0-alpha.1.tgz zod</code>
-        </div>
-        <div>
-          <h3>Python (repository checkout)</h3>
-          <code>uv sync --project kaji/packages/py</code>
-        </div>
-      </div>
-      <p>
-        TypeScript <code>0.3.0-alpha.1</code> is a local release candidate, not an npm publication. Start with the deterministic mock
-        provider, then configure OpenAI, the stable live-provider adapter. Every other adapter
-        remains WIP. Python onboarding still requires a repository checkout; PyPI publication is
-        deferred.
-      </p>
     </section>
 
     <section class="quickstart-links">
       <p>
         <a href="/docs/getting-started">
-          Run your first agent turn <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
+          Build your first capability <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
         </a>
       </p>
       <p>
-        <a href="/docs/concepts/runtime">
-          Understand the runtime loop <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
+        <a href="/docs/concepts/outcomes">
+          Understand succeeded, failed, and unknown <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
         </a>
       </p>
       <p>
-        <a href="/docs/integrations">
-          Browse the integration catalog <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
+        <a href="/docs/examples/refund">
+          Run the refund example <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
         </a>
       </p>
     </section>

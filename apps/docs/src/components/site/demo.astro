@@ -25,18 +25,16 @@ const bottomFrame = `${glyph.bottomLeft}${rail}${glyph.bottomRight}`;
 const linkedBottom = `${glyph.bottomLeft}${glyph.horizontal.repeat(leftRail)}${glyph.teeDown}${glyph.horizontal.repeat(rightRail)}${glyph.bottomRight}`;
 
 const runtimeLines = [
-  { text: "runtime.turn(...)", stage: 0, kind: "turn" },
+  { text: "kaji.execute(refund, request)", stage: 0, kind: "turn" },
   { text: glyph.vertical, stage: 1, kind: "connector" },
   { text: glyph.arrowDown, stage: 1.5, kind: "connector" },
-  { text: "01  session.created", stage: 2, kind: "event" },
-  { text: "02  user.message", stage: 3, kind: "event" },
-  { text: "03  agent.reasoning.started", stage: 4, kind: "event" },
-  { text: "04  tool.call.requested", stage: 5, kind: "event" },
-  { text: "05  tool.call.started", stage: 6, kind: "event" },
-  { text: "06  tool.call.completed", stage: 7, kind: "event" },
-  { text: "07  agent.reasoning.started", stage: 8, kind: "event" },
-  { text: "08  agent.message.delta", stage: 9, kind: "event" },
-  { text: "09  agent.message.completed", stage: 10, kind: "event" },
+  { text: "01  validate input", stage: 2, kind: "event" },
+  { text: "02  claim idempotency key", stage: 3, kind: "event" },
+  { text: "03  authorize(principalId)", stage: 4, kind: "event" },
+  { text: "04  require approval?", stage: 5, kind: "event" },
+  { text: "05  execute(input, context)", stage: 6, kind: "event" },
+  { text: "06  record outcome", stage: 7, kind: "event" },
+  { text: "07  status: succeeded", stage: 8, kind: "event" },
 ] as const;
 
 type RuntimeLine = (typeof runtimeLines)[number];
@@ -103,8 +101,8 @@ const runtimeMarkup = [
 >
   <pre class="runtime-diagram" aria-hidden="true" set:html={runtimeMarkup}></pre>
   <figcaption id="runtime-diagram-caption" class="sr-only">
-    A first tool-enabled turn appends session, user-message, reasoning, tool-call, and completed
-    assistant-message events in sequence.
+    Kaji.execute validates input, claims the idempotency key, checks authorization and approval,
+    runs the capability once, records the outcome, and returns succeeded.
   </figcaption>
 </figure>
 

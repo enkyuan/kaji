@@ -1,0 +1,84 @@
+---
+title: Refund Example
+description: The complete refund proof example, demonstrating a fresh execution, replay, a known failure, and an ambiguous unknown outcome.
+---
+
+The complete, runnable version of this example lives in
+[`examples/refund`](https://github.com/enkyuan/kaji/tree/main/examples/refund)
+in the repository. It consumes `@irogane/kaji` exactly as an external
+package consumer would — no internal imports.
+
+```bash
+git clone https://github.com/enkyuan/kaji.git
+cd kaji
+bun install
+bun run example:refund
+```
+
+## What it proves
+
+The example defines one capability, `payments.refund`, against a fake
+in-memory payment provider, then runs it through five scenarios:
+
+**A fresh refund executes once and succeeds.**
+
+```ts
+const first = await kaji.execute(refund, {
+  input: { paymentId: "pay_123", amount: 750 },
+  principalId: "user_123",
+  idempotencyKey: "refund_req_123",
+});
+// first.status === "succeeded"
+```
+
+**The identical request does not charge the provider twice.**
+
+```ts
+const replay = await kaji.execute(refund, {
+  input: { paymentId: "pay_123", amount: 750 },
+  principalId: "user_123",
+  idempotencyKey: "refund_req_123",
+});
+// replay deep-equals first; the provider committed exactly one refund
+```
+
+**A refund the provider proves it never charged settles `failed`, using
+[`knownFailure()`](/docs/concepts/outcomes#knownfailure):**
+
+```ts
+execute: async (input, context) => {
+  try {
+    return await payments.refund({ ...input, idempotencyKey: context.idempotencyKey, signal: context.signal });
+  } catch (cause) {
+    if (cause instanceof PaymentDeclinedError) throw knownFailure(cause);
+    throw cause;
+  }
+},
+```
+
+**A refund whose acknowledgement is lost after the provider may have
+already committed it settles `unknown`, not `failed`:**
+
+```ts
+const ambiguous = await kaji.execute(ambiguousRefund, {
+  input: { paymentId: "pay_123", amount: 600 },
+  principalId: "user_123",
+  idempotencyKey: "refund_req_ambiguous",
+});
+// ambiguous.status === "unknown"
+```
+
+**Retrying that same operation does not call `execute()` again or
+duplicate the side effect** — the provider's committed-refund count
+stays the same before and after the retry.
+
+## The application / Kaji boundary
+
+The fake payment provider tracks its own committed refunds by
+idempotency key, the way a real provider like Stripe would. That is
+provider-side idempotency, not Kaji's — Kaji never sees it and does not
+rely on it to prevent duplicate execution; Kaji's own idempotency claim
+is what prevents `execute()` from running twice for the same operation.
+
+See the [full README](https://github.com/enkyuan/kaji/tree/main/examples/refund)
+for exact run instructions and output.

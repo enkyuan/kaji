@@ -1,167 +1,129 @@
 ---
 title: Getting Started
-description: Install the local Kaji TypeScript alpha candidate, define a typed tool, and inspect an agent turn end to end.
+description: Define a capability, create the Kaji executor, and run your first governed execution.
 ---
 
-This tutorial verifies capability execution without credentials in both SDKs,
-then configures OpenAI and a risk-classified tool on the Python side. The
-retained TypeScript product is the one-shot `Kaji.execute` capability surface;
-live providers remain a Python path.
+This guide builds the smallest complete capability: a payment refund that
+Kaji validates, authorizes, and executes exactly once.
 
 <Steps>
   <Step>
-    ### Install the local alpha candidate
+    ### Install
 
     ```bash
-    mkdir kaji-quickstart
-    cd kaji-quickstart
-    npm init -y
-    npm install ./irogane-kaji-0.3.0-alpha.1.tgz zod
-    npm install --save-dev tsx@4.22.4
+    npm install @irogane/kaji zod
     ```
 
-    The local `irogane-kaji-0.3.0-alpha.1.tgz` release candidate is not public on npm. The pinned `tsx` development dependency runs TypeScript
-    consistently across the supported Node 22 and 24 lines. If this project
-    uses Bun, replace both install commands with
-    `bun add ./irogane-kaji-0.3.0-alpha.1.tgz zod`; Bun runs `.mts` files directly. Python
-    is not published to PyPI for this release. You do not need a provider key
-    for the first run.
+    Zod is one example of a [Standard Schema](https://standardschema.dev)-compatible
+    validator. Kaji does not require it.
 
   </Step>
 
   <Step>
-    ### Verify the local runtime
+    ### Define the input schema
 
-    Start with the deterministic mock provider. This separates package and
-    runtime setup from network and credential failures.
+    Kaji accepts any validator whose schema exposes `parse(input): Output`
+    and throws on invalid input. Validated output is what your capability's
+    hooks and `execute()` receive.
 
-    {/* getting-started:no-key:typescript:start */}
     ```ts
-    import { Kaji, capability, capabilityResult } from "@irogane/kaji";
-    import * as z from "zod";
+    import { z } from "zod";
 
-    const echo = capability({
-      name: "echo",
-      description: "Echo the provided message back.",
-      input: z.object({ message: z.string() }),
-      risk: "read",
-      execute: async (input) => capabilityResult({ message: input.message }),
+    const RefundInput = z.object({
+      paymentId: z.string().min(1),
+      amount: z.number().positive(),
     });
-    const result = await Kaji.execute({
-      capability: echo,
-      input: { message: "Hello, Kaji." },
-      principal: "local-user",
-    });
-    console.log(JSON.stringify(result.value));
-    ```
-    {/* getting-started:no-key:typescript:end */}
-
-    Save the example as `kaji.mts`, then run it:
-
-    ```bash
-    npm exec -- tsx kaji.mts
-    # or: bun kaji.mts
-    ```
-
-    It prints `{"message":"Hello, Kaji."}`, the capability result value.
-
-    The Python distribution is unavailable from PyPI for this release. From a
-    [source checkout](/docs/install#source-checkout), the same no-key proof
-    keeps risk and caller identity explicit. `AgentBuilder` wires a provider
-    and tools to the runtime's event journal:
-
-    {/* getting-started:no-key:python:start */}
-    ```python
-    import asyncio
-
-    import kaji
-
-
-    @kaji.function_tool(description="Return a local status.", risk="read")
-    async def local_status() -> dict:
-        return {"status": "ready"}
-
-
-    async def main() -> None:
-        runtime = (
-            kaji.AgentBuilder()
-            .provider(kaji.get_provider("mock", reply="mock"))
-            .tool(local_status)
-            .default_context(kaji.TurnContext(principal_id="docs-source"))
-            .build()
-        )
-        try:
-            result = await runtime.turn("Say hello.")
-            print(result.text)
-        finally:
-            runtime.close()
-
-
-    asyncio.run(main())
-    ```
-    {/* getting-started:no-key:python:end */}
-
-    Save the Python example as `kaji/packages/py/smoke.py`, then run it:
-
-    ```bash
-    uv sync --project kaji/packages/py
-    uv run --project kaji/packages/py python kaji/packages/py/smoke.py
     ```
 
   </Step>
 
   <Step>
-    ### Configure OpenAI (Python)
+    ### Define the capability
 
-    Live providers are a Python path in this release. Export the credential,
-    then switch the quickstart's mock factory for the OpenAI factory:
+    A capability wraps one application action. Authorization and the side
+    effect stay in your code; Kaji only calls them at the right time.
 
-    ```bash
-    export OPENAI_API_KEY=sk-...
+    ```ts
+    import { capability } from "@irogane/kaji";
+
+    const refund = capability({
+      name: "payments.refund",
+      input: RefundInput,
+
+      authorize: async ({ principalId, input }) => {
+        return canRefund(principalId, input.paymentId);
+      },
+
+      approval: ({ input }) => input.amount >= 500,
+
+      execute: async (input, context) => {
+        return payments.refund({
+          ...input,
+          idempotencyKey: context.idempotencyKey,
+          signal: context.signal,
+        });
+      },
+    });
     ```
 
-    The `kaji.get_provider("openai")` factory reads `OPENAI_API_KEY`. Load the
-    variable with your application's environment tooling. OpenAI is the
-    recommended live-provider path. Anthropic, Gemini, Kimi, and OpenRouter
-    are implemented but remain WIP.
+    `canRefund()` and `payments.refund()` are your own application code.
+    See [capabilities](/docs/concepts/capabilities) for what each field owns.
 
   </Step>
 
   <Step>
-    ### Run a live tool loop (Python)
+    ### Create the executor
 
-    Change the Python quickstart's provider line and give the tool a caller
-    identity:
+    `createKaji()` needs an `ExecutionStore` and, if any capability can
+    require approval, an `approve` handler.
 
-    ```python
-    runtime = (
-        kaji.AgentBuilder()
-        .provider(kaji.get_provider("openai"))
-        .tool(local_status)
-        .default_context(kaji.TurnContext(principal_id="docs-source"))
-        .build()
-    )
+    ```ts
+    import { createKaji, memoryStore } from "@irogane/kaji";
+
+    const kaji = createKaji({
+      store: memoryStore(),
+      approve: async () => ({ approved: true }),
+    });
     ```
 
-    `turn()` records the user message, calls the provider, validates and
-    dispatches any selected tool, and returns the final assistant text.
+    `memoryStore()` is process-local and not durable. See
+    [custom store](/docs/guides/custom-store) before deploying to
+    production.
+
+  </Step>
+
+  <Step>
+    ### Execute
+
+    Every execution needs a caller-supplied `principalId` and
+    `idempotencyKey`. Kaji never infers either value.
+
+    ```ts
+    const result = await kaji.execute(refund, {
+      input: {
+        paymentId: "pay_123",
+        amount: 750,
+      },
+      principalId: "user_123",
+      idempotencyKey: "refund_req_123",
+    });
+
+    if (result.status === "succeeded") {
+      console.log(result.result);
+    }
+    ```
+
+    `result.status` is one of `succeeded`, `denied`, `rejected`, `failed`,
+    `cancelled`, or `unknown`. See [execution outcomes](/docs/concepts/outcomes)
+    for what each one means and [idempotency](/docs/concepts/idempotency)
+    for what happens if you call `execute()` again with the same key.
 
   </Step>
 </Steps>
 
-## What to read next
+## Next
 
-- [Runtime](/docs/concepts/runtime) explains turn ordering, context, and
-  lifecycle.
-- [Tool registry](/docs/concepts/tool-registry) covers risk, approval, and
-  idempotency.
-- [Events](/docs/concepts/events) shows how to inspect and replay session state.
-- [GitHub integration](/docs/integrations/github) builds a bounded read-only
-  investigation agent.
-
-## Using Python?
-
-The Python SDK implements the shared event and tool contracts, but it is not
-the primary path in this tutorial. The distribution is not available from
-PyPI for this release. See the [Python source setup](/docs/install#python-sdk)
-for Python-specific commands.
+- [Capabilities](/docs/concepts/capabilities) — what a capability owns, what Kaji owns.
+- [Execution outcomes](/docs/concepts/outcomes) — `succeeded`, `failed`, `unknown`, and `knownFailure()`.
+- [Idempotency](/docs/concepts/idempotency) — what happens on a duplicate request.
+- [Refund example](/docs/examples/refund) — the complete, runnable version of this guide.

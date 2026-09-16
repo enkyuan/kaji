@@ -1,0 +1,68 @@
+---
+title: Capabilities
+description: A capability declares one application action and the rules Kaji enforces before running it.
+---
+
+A capability describes one application action: its validated input, who
+may perform it, when it needs approval, and the code that actually runs
+it.
+
+```ts
+import { capability } from "@irogane/kaji";
+
+const refund = capability({
+  name: "payments.refund",
+  input: RefundInput,
+  authorize: async ({ principalId, input }) => canRefund(principalId, input.paymentId),
+  approval: ({ input }) => input.amount >= 500,
+  execute: async (input, context) => {
+    return payments.refund({
+      ...input,
+      idempotencyKey: context.idempotencyKey,
+      signal: context.signal,
+    });
+  },
+});
+```
+
+## Fields
+
+- **`name`** — a stable, non-empty identifier for this action.
+- **`input`** — a parser with `parse(input: unknown): Input` that returns
+  validated input or throws. Standard Schema-compatible validators
+  (Zod, and others exposing this shape) work directly.
+- **`authorize`** — `({ principalId, input }) => boolean | Promise<boolean>`.
+  Returning `false` denies execution.
+- **`approval`** (optional) — `({ principalId, input }) => boolean`.
+  Returning `true` requires approval for that request.
+- **`execute`** — `(input, context) => Result | Promise<Result>`. Ordinary
+  application code. Receives validated input and an
+  [`ExecutionContext`](/docs/reference/api#executioncontext) with
+  `principalId`, `idempotencyKey`, and a combined `AbortSignal`.
+
+## Who owns what
+
+```text
+application owns:
+  - business logic
+  - authorization policy
+  - the remote call inside execute()
+
+Kaji owns:
+  - validating input before authorize/approval/execute run
+  - claiming the idempotency key
+  - enforcing the approval decision
+  - calling execute() at most once per operation
+  - classifying the outcome
+```
+
+`execute` is ordinary application code — Kaji never inspects, retries, or
+rewrites it. See [authorization and approval](/docs/guides/authorization-and-approval)
+for how the `authorize` and `approval` hooks are enforced, and
+[execution outcomes](/docs/concepts/outcomes) for what `execute` can
+return or throw.
+
+## Next
+
+[Execution outcomes](/docs/concepts/outcomes) covers `succeeded`,
+`failed`, `unknown`, and `knownFailure()`.

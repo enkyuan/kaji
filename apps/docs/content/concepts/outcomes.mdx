@@ -1,0 +1,100 @@
+---
+title: Execution Outcomes
+description: The difference between succeeded, failed, and unknown, and when to use knownFailure().
+---
+
+Every governed execution resolves to an explicit `status`. Kaji does not
+throw for expected outcomes — `kaji.execute()` only rejects when it
+cannot establish the execution boundary at all, such as invalid
+executor configuration.
+
+```ts
+type ExecutionResult<Result> =
+  | { status: "succeeded"; result: Result; evidence: ExecutionEvidence }
+  | {
+      status: "denied" | "rejected" | "failed" | "cancelled";
+      error: unknown;
+      evidence: ExecutionEvidence;
+    }
+  | { status: "unknown"; error: unknown; evidence: ExecutionEvidence };
+```
+
+- **`succeeded`** — `execute()` returned a result. Kaji has a definitive
+  successful result.
+- **`denied`** — `authorize()` returned `false` or threw.
+- **`rejected`** — approval was required and was not granted: no
+  `approve` handler was configured, the handler threw, or it returned
+  `{ approved: false }`.
+- **`failed`** — application code established that execution failed
+  without the side effect committing. This includes reusing an
+  idempotency key with different input (a conflict) and an `execute()`
+  call that threw [`knownFailure(cause)`](#knownfailure).
+- **`cancelled`** — cancellation or timeout stopped the request before
+  `execute()` began. Nothing ran.
+- **`unknown`** — the side effect may have committed, but Kaji cannot
+  prove the final result. This is not an error category; it is an
+  epistemic state. Do not treat `unknown` as a retryable failure.
+
+## Why unknown exists
+
+Once `execute()` begins, Kaji can no longer prove the action did not
+start. If `execute()` throws, rejects, or is aborted after it has
+started, Kaji has no way to know whether the underlying side effect
+(a charge, an email, a remote write) already happened. Treating that
+ambiguity as an ordinary failure would let a caller retry and risk a
+duplicate side effect, so Kaji settles `unknown` instead:
+
+```text
+execute() resolves
+  → succeeded
+
+execute() throws knownFailure(cause)
+  → failed
+
+execute() throws or rejects with anything else
+  → unknown
+```
+
+A timeout or cancellation that fires after `execute()` has started
+follows the same rule and settles `unknown`, never `cancelled` or
+`failed`. A timeout means Kaji stopped waiting — it is not proof of
+rollback, and an `AbortSignal` firing locally is not proof that a remote
+side effect did not commit.
+
+## knownFailure()
+
+`knownFailure(cause)` is the one way application code can assert that a
+specific `execute()` failure is definitively known — no ambiguous side
+effect remains — so Kaji settles `failed` instead of the `unknown`
+default.
+
+```ts
+import { knownFailure } from "@irogane/kaji";
+
+execute: async (input, context) => {
+  try {
+    return await payments.refund({
+      ...input,
+      idempotencyKey: context.idempotencyKey,
+      signal: context.signal,
+    });
+  } catch (cause) {
+    if (cause instanceof PaymentDeclinedError) {
+      // The provider proved the refund was never charged.
+      throw knownFailure(cause);
+    }
+    throw cause; // anything else stays unknown: the side effect may have committed
+  }
+},
+```
+
+Kaji never infers a known failure from an error's class, HTTP status,
+message, network failure, timeout, or cancellation. Only application
+code that can prove no side effect committed may throw
+`knownFailure()`. Every other thrown or rejected `execute()` call,
+including one Kaji does not recognize, still settles `unknown`.
+
+## Next
+
+[Idempotency](/docs/concepts/idempotency) covers what happens when the
+same request is made again after any of these outcomes.

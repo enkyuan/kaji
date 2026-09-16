@@ -1,0 +1,86 @@
+---
+title: Authorization & Approval
+description: The application owns policy; Kaji enforces the execution order and the decision.
+---
+
+Kaji is not an authorization system or an identity provider. It enforces
+two decisions your application makes: whether a principal may perform an
+action, and whether that action needs a separate approval before it
+runs.
+
+## Identity
+
+Kaji only knows about identity as `principalId: string`, supplied by the
+caller on every request:
+
+```ts
+await kaji.execute(refund, {
+  input: { paymentId: "pay_123", amount: 750 },
+  principalId: "user_123",
+  idempotencyKey: "refund_req_123",
+});
+```
+
+Kaji never infers `principalId` from process state, and there is no
+`Actor`, `Session`, or claims object — the host application supplies a
+stable identifier and owns everything behind it.
+
+## Authorization
+
+`authorize` answers one question: "may this principal perform this
+exact action?"
+
+```ts
+const refund = capability({
+  name: "payments.refund",
+  input: RefundInput,
+  authorize: async ({ principalId, input }) => {
+    return canRefund(principalId, input.paymentId);
+  },
+  // ...
+});
+```
+
+`canRefund()` is your policy, not Kaji's. Returning `false` or throwing
+denies execution with `status: "denied"` before any side effect runs.
+
+## Approval
+
+A capability decides _when_ approval is required. The host application
+decides _how_ a decision is obtained. Kaji enforces the result.
+
+```ts
+const refund = capability({
+  // ...
+  approval: ({ input }) => input.amount >= 500,
+});
+
+const kaji = createKaji({
+  store: memoryStore(),
+  approve: async (request) => {
+    // request: { capability, principalId, input, idempotencyKey }
+    return await requestHumanApproval(request);
+  },
+});
+```
+
+If `approval` returns `true`, Kaji calls the configured `approve`
+handler before running `execute`. A missing handler, a thrown handler,
+an invalid decision shape, or `{ approved: false }` all resolve to
+`status: "rejected"` — approval is fail-closed. Kaji does not store a
+pending approval or run a multi-step approval workflow: `approve` is
+called once per request and must resolve before execution continues.
+
+## Order
+
+```text
+validate → authorize → approval → claim idempotency → execute
+```
+
+Validation always runs first, so invalid input never reaches
+`authorize`, `approval`, or `execute`.
+
+## Next
+
+[Idempotency](/docs/concepts/idempotency) covers what happens when a
+request with the same key is made again.

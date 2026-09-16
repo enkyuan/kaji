@@ -1,0 +1,84 @@
+---
+title: Custom Store
+description: memoryStore() is process-local and not durable. Implement ExecutionStore for production persistence.
+---
+
+`ExecutionStore` is the storage boundary that atomically claims an
+idempotent operation and records its terminal outcome.
+
+```ts
+type ExecutionStore = {
+  claim(claim: ExecutionClaim): Promise<ClaimResult>;
+  record(execution: StoredExecution): Promise<void>;
+};
+```
+
+`claim()` must be atomic enough that two concurrent callers for the same
+capability, principal, and idempotency key never both receive
+`{ status: "claimed" }`. `record()` persists the terminal outcome for a
+claim exactly once.
+
+## memoryStore()
+
+```ts
+import { memoryStore } from "@irogane/kaji";
+
+const kaji = createKaji({ store: memoryStore() });
+```
+
+`memoryStore()` is:
+
+- process-local
+- in-memory
+- useful for local development, tests, and examples
+
+It is **not**:
+
+- durable — nothing it records survives a process restart
+- shared across processes or instances
+- safe as production persistence for a multi-instance deployment
+
+## Implementing a durable store
+
+A production deployment behind multiple processes or instances needs an
+`ExecutionStore` backed by durable, atomic storage — for example a
+database with a unique constraint on the claim identity
+(`capability` + `principalId` + `idempotencyKey`). Kaji does not ship a
+database adapter in v0; implement `ExecutionStore` directly against your
+existing storage layer.
+
+```ts
+type ExecutionClaim = {
+  capability: string;
+  principalId: string;
+  idempotencyKey: string;
+  inputFingerprint: string;
+};
+
+type ClaimResult =
+  | { status: "claimed"; executionId: string }
+  | { status: "existing"; outcome: Promise<StoredExecution> }
+  | { status: "conflict"; executionId: string };
+
+type StoredExecution = ExecutionResult<unknown>;
+```
+
+- Return `"claimed"` with a new `executionId` when no claim exists yet
+  for that identity.
+- Return `"existing"` with a promise that resolves once the matching
+  claim settles, when the identity already exists with the same
+  `inputFingerprint`. A caller awaiting this must observe the real
+  recorded outcome, not a synthetic one.
+- Return `"conflict"` when the identity already exists with a
+  **different** `inputFingerprint` — this is what makes reusing a key
+  with different input fail instead of silently succeeding.
+
+Kaji does not provide a database adapter, distributed lock, event
+stream, or retry system in v0. `ExecutionClaim`, `ClaimResult`, and
+`StoredExecution` are exported only so a custom store can implement this
+contract.
+
+## Next
+
+See the [API reference](/docs/reference/api) for the exact `ExecutionStore`
+type and every other root export.
