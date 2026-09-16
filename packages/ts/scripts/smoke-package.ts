@@ -1,0 +1,71 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const packageDirectory = resolve(import.meta.dirname, "..");
+const temporaryDirectory = mkdtempSync(join(tmpdir(), "kaji-package-"));
+
+try {
+  const packed = JSON.parse(
+    execFileSync("npm", ["pack", "--json", "--pack-destination", temporaryDirectory], {
+      cwd: packageDirectory,
+      encoding: "utf8",
+    }),
+  ) as Array<{ filename: string; files: Array<{ path: string }> }>;
+  const artifact = packed[0]!;
+  const prohibitedFiles = artifact.files.filter(({ path }) =>
+    /^(scripts|src|tests)\/|^(tsconfig\.json|tsdown\.config\.ts)$/.test(path),
+  );
+  if (prohibitedFiles.length > 0) {
+    throw new Error(
+      `Packed artifact contains development files: ${prohibitedFiles.map(({ path }) => path).join(", ")}`,
+    );
+  }
+
+  const tarball = join(temporaryDirectory, artifact.filename);
+  writeFileSync(
+    join(temporaryDirectory, "package.json"),
+    JSON.stringify({ private: true, type: "module" }),
+  );
+  execFileSync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], {
+    cwd: temporaryDirectory,
+    stdio: "inherit",
+  });
+  writeFileSync(join(temporaryDirectory, "import.mjs"), 'await import("@irogane/kaji");\n');
+  writeFileSync(join(temporaryDirectory, "consumer.ts"), 'import "@irogane/kaji";\n');
+  writeFileSync(
+    join(temporaryDirectory, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        noEmit: true,
+        strict: true,
+        target: "ES2022",
+      },
+    }),
+  );
+
+  execFileSync("node", ["import.mjs"], {
+    cwd: temporaryDirectory,
+    stdio: "inherit",
+  });
+  execFileSync(
+    "node",
+    [
+      fileURLToPath(import.meta.resolve("typescript/bin/tsc")),
+      "--project",
+      join(temporaryDirectory, "tsconfig.json"),
+    ],
+    {
+      cwd: temporaryDirectory,
+      stdio: "inherit",
+    },
+  );
+
+  readFileSync(join(temporaryDirectory, "node_modules", "@irogane", "kaji", "dist", "index.d.mts"));
+} finally {
+  rmSync(temporaryDirectory, { force: true, recursive: true });
+}
