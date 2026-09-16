@@ -1,9 +1,8 @@
 # Active work
 
-Goal: Establish the Kaji monorepo skeleton and bring `apps/docs` up standalone.
-Reference: AGENTS.md
-Owner: unassigned
+Goal: Freeze the smallest coherent TypeScript v0 product contract for Kaji.
+Reference: docs/product.md, docs/invariants.md, docs/api.md
+Owner: design authority
 State: DONE
 Started: 2026-09-15
-Exit condition: `apps/docs` builds, typechecks, lints, and formats independently
-of any SDK package; repository skeleton matches AGENTS.md.
+Exit condition: The product, invariant, and API documents define the execution boundary without SDK implementation or expanded product scope.
