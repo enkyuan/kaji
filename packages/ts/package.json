@@ -1,0 +1,46 @@
+{
+  "name": "@irogane/kaji",
+  "version": "0.0.0",
+  "description": "Execution primitives for safely running application actions requested by AI agents.",
+  "homepage": "https://kaji.build",
+  "bugs": {
+    "url": "https://github.com/enkyuan/kaji/issues"
+  },
+  "license": "FSL-1.1-ALv2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/enkyuan/kaji.git",
+    "directory": "packages/ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src tests scripts",
+    "format": "oxfmt --write package.json tsconfig.json tsdown.config.ts src tests scripts",
+    "format:check": "oxfmt --check package.json tsconfig.json tsdown.config.ts src tests scripts",
+    "test": "vitest run",
+    "package:check": "bun run build && publint && attw --pack . --profile esm-only",
+    "package:smoke": "bun run build && bun run scripts/smoke-package.ts"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.68.0",
+    "publint": "^0.3.12",
+    "tsdown": "^0.17.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.0"
+  }
+}
