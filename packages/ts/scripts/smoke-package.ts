@@ -33,8 +33,36 @@ try {
     cwd: temporaryDirectory,
     stdio: "inherit",
   });
-  writeFileSync(join(temporaryDirectory, "import.mjs"), 'await import("@irogane/kaji");\n');
-  writeFileSync(join(temporaryDirectory, "consumer.ts"), 'import "@irogane/kaji";\n');
+  writeFileSync(
+    join(temporaryDirectory, "import.mjs"),
+    [
+      'import { capability } from "@irogane/kaji";',
+      "const noop = capability({",
+      '  name: "smoke.test",',
+      "  input: { parse: (value) => value },",
+      "  authorize: () => true,",
+      "  execute: (input) => input,",
+      "});",
+      "if (typeof noop.name !== 'string') throw new Error('capability() did not return a name');",
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(temporaryDirectory, "consumer.ts"),
+    [
+      'import { capability } from "@irogane/kaji";',
+      "",
+      "const example = capability({",
+      '  name: "smoke.typecheck",',
+      "  input: { parse: (value: unknown) => value as { amount: number } },",
+      "  authorize: () => true,",
+      "  execute: (input) => input.amount,",
+      "});",
+      "",
+      "export type Name = typeof example.name;",
+      "",
+    ].join("\n"),
+  );
   writeFileSync(
     join(temporaryDirectory, "tsconfig.json"),
     JSON.stringify({
