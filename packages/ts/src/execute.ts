@@ -6,7 +6,7 @@ import type { ExecutionEvidence, ExecutionResult } from "./execution-result.ts";
 import type { ExecutionRequest } from "./execution-request.ts";
 import type { ExecutionStore } from "./execution-store.ts";
 import { fingerprintInput } from "./fingerprint.ts";
-import { KajiConfigurationError } from "./errors.ts";
+import { KajiConfigurationError, KnownFailure } from "./errors.ts";
 import { validateInput } from "./schema.ts";
 
 export type ExecuteDependencies = {
@@ -141,9 +141,14 @@ async function runCapability<Input, Result>(
     const result = await execute(input, context);
     return { status: "succeeded", result, evidence };
   } catch (cause) {
-    // A thrown or rejected `execute` call is `unknown`, never an ordinary
-    // `failed`: only application code knows whether its own side effect
-    // committed before the error surfaced (docs/api.md).
+    // A thrown or rejected `execute` call is `unknown` by default: only
+    // application code knows whether its own side effect committed before
+    // the error surfaced (docs/api.md). `KnownFailure` is the one explicit
+    // exception — application code asserting no side effect committed —
+    // and settles `failed` instead.
+    if (cause instanceof KnownFailure) {
+      return { status: "failed", error: cause.cause, evidence };
+    }
     return { status: "unknown", error: cause, evidence };
   }
 }
