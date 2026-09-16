@@ -3,13 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "workspaces": ["apps/*"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "bun --filter @kaji/docs dev",
-    "build": "bun --filter @kaji/docs build",
-    "typecheck": "bun --filter @kaji/docs typecheck",
-    "lint": "bun --filter @kaji/docs lint",
-    "format": "bun --filter @kaji/docs format",
-    "format:check": "bun --filter @kaji/docs format:check"
+    "dev": "bun --filter=@kaji/docs dev",
+    "build": "bun --filter='*' run build",
+    "typecheck": "bun --filter='*' run typecheck",
+    "lint": "bun --filter='*' run lint",
+    "format": "bun --filter='*' run format",
+    "format:check": "bun --filter='*' run format:check",
+    "test": "bun --filter=@irogane/kaji run test",
+    "package:check": "bun --filter=@irogane/kaji run package:check",
+    "package:smoke": "bun --filter=@irogane/kaji run package:smoke"
   }
 }
