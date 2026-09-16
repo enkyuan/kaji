@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/*", "packages/*", "examples/*"],
   "scripts": {
     "dev": "bun --filter=@kaji/docs dev",
     "build": "bun --filter='*' run build",
@@ -13,6 +13,7 @@
     "format:check": "bun --filter='*' run format:check",
     "test": "bun --filter=@irogane/kaji run test",
     "package:check": "bun --filter=@irogane/kaji run package:check",
-    "package:smoke": "bun --filter=@irogane/kaji run package:smoke"
+    "package:smoke": "bun --filter=@irogane/kaji run package:smoke",
+    "example:refund": "bun --filter=@irogane/kaji-example-refund run start"
   }
 }
