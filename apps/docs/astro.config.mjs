@@ -49,6 +49,7 @@ document.addEventListener("astro:page-load", mountAgentation);`,
 });
 
 export default defineConfig({
+  site: "https://kaji.build",
   integrations: [mdx(), agentation()],
   markdown: {
     shikiConfig: {

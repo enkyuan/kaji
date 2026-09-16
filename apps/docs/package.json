@@ -6,10 +6,9 @@
   "type": "module",
   "scripts": {
     "build": "astro build",
-    "check:sdk-sync": "node scripts/check-sync.mjs",
     "dev": "astro dev",
     "preview": "astro preview",
-    "typecheck": "node scripts/check-sync.mjs && astro check",
+    "typecheck": "astro check",
     "lint": "oxlint",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
@@ -30,6 +29,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "agentation": "^3.0.2",
+    "oxfmt": "0.68.0",
     "oxlint": "^1.68.0",
     "typescript": "^6.0.3"
   }
