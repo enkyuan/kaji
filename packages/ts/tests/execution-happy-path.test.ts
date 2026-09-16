@@ -2,35 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
 import { memoryStore } from "../src/memory-store.ts";
-import type { InputParser } from "../src/schema.ts";
-
-type Refund = { paymentId: string; amount: number };
-
-const refundParser: InputParser<Refund> = {
-  parse: (value) => {
-    const input = value as Partial<Refund>;
-    if (typeof input.paymentId !== "string" || typeof input.amount !== "number") {
-      throw new Error("invalid refund input");
-    }
-    return { paymentId: input.paymentId, amount: input.amount };
-  },
-};
-
-function baseRequest(
-  overrides: Partial<{
-    input: unknown;
-    principalId: string;
-    idempotencyKey: string;
-    signal: AbortSignal;
-  }> = {},
-) {
-  return {
-    input: { paymentId: "pay_1", amount: 10 },
-    principalId: "user_1",
-    idempotencyKey: "key_1",
-    ...overrides,
-  };
-}
+import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
 
 describe("kaji.execute happy path", () => {
   it("runs a valid request successfully", async () => {
