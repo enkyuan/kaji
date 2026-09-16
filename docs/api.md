@@ -156,7 +156,28 @@ export type ExecutionEvidence = {
 - `cancelled` means cancellation prevented side-effect execution.
 - `unknown` means a side effect may have happened but Kaji cannot prove completion. A timeout or cancellation after `execute` begins produces `unknown`. Callers must not blindly retry `unknown`.
 
-Kaji treats a thrown or rejected `execute` call as `unknown`. Only application code knows whether its own side effect may have committed, so this safe default prevents Kaji from misclassifying an ambiguous failure as an ordinary retryable failure.
+Kaji treats a thrown or rejected `execute` call as `unknown` by default. Only application code knows whether its own side effect may have committed, so this safe default prevents Kaji from misclassifying an ambiguous failure as an ordinary retryable failure.
+
+## Known failure
+
+`knownFailure(cause)` is the one explicit exception to that default. A capability's `execute` function throws it to assert that a specific failure is definitively known — no ambiguous side effect remains — so Kaji settles `failed` instead of `unknown`.
+
+```ts
+export function knownFailure(cause: unknown): Error;
+```
+
+```ts
+execute: async (input, context) => {
+  try {
+    return await provider.charge(input);
+  } catch (cause) {
+    if (isDefinitelyDeclined(cause)) throw knownFailure(cause);
+    throw cause; // stays unknown: the side effect may have committed
+  }
+},
+```
+
+`knownFailure()` only wraps `cause` for Kaji to recognize; it does not change what the underlying error means. Kaji never infers this classification from an error's class, message, or status code — only application code that can actually prove no side effect committed may throw `knownFailure()`. Every other thrown or rejected `execute` call, including an unrecognized error, still settles `unknown`.
 
 A repeated execution with the same idempotency key and input fingerprint returns the recorded result. Reuse of an idempotency key with different input, capability, or principal must return a conflict as a `failed` result. A concurrent duplicate waits for or receives the same recorded outcome; it must not run `execute` again.
 
@@ -196,7 +217,7 @@ Kaji does not provide a database store, distributed lock, event stream, retry sy
 The intended v0 exports are:
 
 ```ts
-export { capability, createKaji, memoryStore };
+export { capability, createKaji, knownFailure, memoryStore };
 
 export type {
   Capability,
