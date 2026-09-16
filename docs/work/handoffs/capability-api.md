@@ -5,7 +5,7 @@ Branch: feat/capability-api
 Worktree: /Users/enkyuan/Desktop/Projects/kaji-wt/feat-capability-api
 Owner: implementation
 Base SHA: 30239fd (build/ts-package)
-Head SHA: pending commit on feat/capability-api
+Head SHA: 366a6ae
 
 ## Goal
 
