@@ -36,7 +36,7 @@ try {
   writeFileSync(
     join(temporaryDirectory, "import.mjs"),
     [
-      'import { capability, memoryStore } from "@irogane/kaji";',
+      'import { capability, createKaji, memoryStore } from "@irogane/kaji";',
       "const noop = capability({",
       '  name: "smoke.test",',
       "  input: { parse: (value) => value },",
@@ -54,12 +54,20 @@ try {
       "});",
       "if (claimed.status !== 'claimed') throw new Error('memoryStore() did not grant the first claim');",
       "",
+      "const kaji = createKaji({ store: memoryStore() });",
+      "const result = await kaji.execute(noop, {",
+      "  input: { value: 1 },",
+      '  principalId: "user_1",',
+      '  idempotencyKey: "key_2",',
+      "});",
+      "if (result.status !== 'succeeded') throw new Error('kaji.execute() did not succeed');",
+      "",
     ].join("\n"),
   );
   writeFileSync(
     join(temporaryDirectory, "consumer.ts"),
     [
-      'import { capability, memoryStore } from "@irogane/kaji";',
+      'import { capability, createKaji, memoryStore } from "@irogane/kaji";',
       "",
       "const example = capability({",
       '  name: "smoke.typecheck",',
@@ -72,6 +80,9 @@ try {
       "",
       "const store = memoryStore();",
       "export type Store = typeof store;",
+      "",
+      "const kaji = createKaji({ store });",
+      "export type ExecuteResult = ReturnType<typeof kaji.execute>;",
       "",
     ].join("\n"),
   );

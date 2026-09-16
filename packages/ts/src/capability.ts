@@ -19,7 +19,7 @@ type PrincipalRequest<Input> = {
  * `Input` is the parser's returned/validated type, matching what
  * `authorize`, `approval`, and `execute` receive.
  */
-type CapabilityDefinition<Input, Result> = {
+export type CapabilityDefinition<Input, Result> = {
   readonly name: string;
   readonly input: InputParser<Input>;
   readonly authorize: (request: PrincipalRequest<Input>) => boolean | Promise<boolean>;
@@ -65,4 +65,16 @@ export function capability<Input, Result>(
     approval: definition.approval,
     execute: definition.execute,
   });
+}
+
+/**
+ * Recovers the full declaration from a `Capability`. The public
+ * `Capability<Input, Result>` type only advertises `name`, but the object
+ * `capability()` returns always carries `input`/`authorize`/`approval`/
+ * `execute` — the executor is their one legitimate reader.
+ */
+export function capabilityDefinition<Input, Result>(
+  capability: Capability<Input, Result>,
+): CapabilityDefinition<Input, Result> {
+  return capability as unknown as CapabilityDefinition<Input, Result>;
 }
