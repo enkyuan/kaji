@@ -5,7 +5,7 @@ Branch: test/failure-semantics
 Worktree: /Users/enkyuan/Desktop/Projects/kaji-wt/test-failure-semantics
 Owner: verification
 Base SHA: 61cd1fa (feat/execute)
-Head SHA: pending commit on test/failure-semantics
+Head SHA: a5f2b0c
 
 ## Goal
 
