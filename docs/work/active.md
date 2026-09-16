@@ -1,8 +1,8 @@
 # Active work
 
-Goal: Implement Kaji's minimal atomic execution-store contract and in-memory reference implementation.
+Goal: Implement Kaji's single canonical safe execution path using the finalized Capability and ExecutionStore contracts.
 Reference: docs/product.md, docs/invariants.md, docs/api.md
 Owner: implementation
 State: DONE
 Started: 2026-09-15
-Exit condition: memoryStore() implements ExecutionStore with atomic single-claim semantics, conflict detection, unknown-outcome preservation, and completed-result replay; runtime/type tests and full package checks pass.
+Exit condition: createKaji()/kaji.execute() compose validation, idempotency claim, authorization, approval, capability execution, and settlement into one deterministic path; runtime/type/concurrency tests and full package checks pass.
