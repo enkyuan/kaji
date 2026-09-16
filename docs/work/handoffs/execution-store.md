@@ -5,7 +5,7 @@ Branch: feat/execution-store
 Worktree: /Users/enkyuan/Desktop/Projects/kaji-wt/feat-execution-store
 Owner: implementation
 Base SHA: 7398d61 (feat/capability-api)
-Head SHA: pending commit on feat/execution-store
+Head SHA: f5a02e6
 
 ## Goal
 
