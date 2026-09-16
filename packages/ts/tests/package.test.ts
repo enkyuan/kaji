@@ -5,6 +5,7 @@ describe("package entry", () => {
     expect(Object.keys(await import("../src/index.ts")).sort()).toEqual([
       "capability",
       "createKaji",
+      "knownFailure",
       "memoryStore",
     ]);
   });
