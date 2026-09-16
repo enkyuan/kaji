@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
+import { knownFailure } from "../src/errors.ts";
 import { memoryStore } from "../src/memory-store.ts";
 import type { ExecutionStore } from "../src/execution-store.ts";
 import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
@@ -285,6 +286,89 @@ describe("ordinary execution failure", () => {
     await kaji.execute(refund, baseRequest());
     await kaji.execute(refund, baseRequest());
 
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("known failure", () => {
+  it("settles failed, not unknown, when execute() throws knownFailure(cause)", async () => {
+    const cause = new Error("card definitively declined before any charge was attempted");
+    const execute = vi.fn(async () => {
+      throw knownFailure(cause);
+    });
+    const refund = capability({
+      name: "payments.refund",
+      input: refundParser,
+      authorize: () => true,
+      execute,
+    });
+    const kaji = createKaji({ store: memoryStore() });
+
+    const result = await kaji.execute(refund, baseRequest());
+
+    // Application code proved no side effect committed, so Kaji may
+    // record this as an ordinary failure instead of the unknown default.
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") expect(result.error).toBe(cause);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not misclassify a generic throw as known failure", async () => {
+    const cause = new Error("acknowledgement lost after the provider may have committed");
+    const execute = vi.fn(async () => {
+      throw cause;
+    });
+    const refund = capability({
+      name: "payments.refund",
+      input: refundParser,
+      authorize: () => true,
+      execute,
+    });
+    const kaji = createKaji({ store: memoryStore() });
+
+    const result = await kaji.execute(refund, baseRequest());
+
+    // Kaji never infers a known failure from an error's class, message,
+    // or status code — only an explicit knownFailure() throw qualifies.
+    expect(result.status).toBe("unknown");
+    if (result.status === "unknown") expect(result.error).toBe(cause);
+  });
+
+  it("does not automatically retry after a known failure", async () => {
+    const execute = vi.fn(async () => {
+      throw knownFailure(new Error("declined"));
+    });
+    const refund = capability({
+      name: "payments.refund",
+      input: refundParser,
+      authorize: () => true,
+      execute,
+    });
+    const kaji = createKaji({ store: memoryStore() });
+
+    await kaji.execute(refund, baseRequest());
+    await kaji.execute(refund, baseRequest());
+
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-execute an unknown outcome on a repeated request", async () => {
+    const execute = vi.fn(async () => {
+      throw new Error("acknowledgement lost");
+    });
+    const refund = capability({
+      name: "payments.refund",
+      input: refundParser,
+      authorize: () => true,
+      execute,
+    });
+    const kaji = createKaji({ store: memoryStore() });
+
+    const first = await kaji.execute(refund, baseRequest());
+    const second = await kaji.execute(refund, baseRequest());
+
+    expect(first.status).toBe("unknown");
+    expect(second.status).toBe("unknown");
     expect(execute).toHaveBeenCalledTimes(1);
   });
 });

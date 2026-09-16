@@ -36,7 +36,7 @@ try {
   writeFileSync(
     join(temporaryDirectory, "import.mjs"),
     [
-      'import { capability, createKaji, memoryStore } from "@irogane/kaji";',
+      'import { capability, createKaji, knownFailure, memoryStore } from "@irogane/kaji";',
       "const noop = capability({",
       '  name: "smoke.test",',
       "  input: { parse: (value) => value },",
@@ -44,6 +44,7 @@ try {
       "  execute: (input) => input,",
       "});",
       "if (typeof noop.name !== 'string') throw new Error('capability() did not return a name');",
+      "if (typeof knownFailure(new Error('x')) !== 'object') throw new Error('knownFailure() did not return an error');",
       "",
       "const store = memoryStore();",
       "const claimed = await store.claim({",

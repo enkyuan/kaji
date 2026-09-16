@@ -99,6 +99,17 @@ Why:
 Failure example:
 Kaji converts a network failure after a remote refund request into `failed` and retries it automatically.
 
+## Known failure is explicit
+
+Rule:
+Kaji must classify a capability's thrown or rejected `execute` call as `unknown` by default and may only record `failed` when application code throws `knownFailure(cause)`. Kaji must never infer this classification from an error's class, message, or status code.
+
+Why:
+Only application code can know whether its own side effect committed before an error surfaced; guessing from error shape risks retrying an action that already happened.
+
+Failure example:
+Kaji treats any error whose message contains "declined" as `failed` without application code asserting that no side effect occurred.
+
 ## Cancellation is cooperative
 
 Rule:
