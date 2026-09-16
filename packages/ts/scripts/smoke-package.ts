@@ -36,7 +36,7 @@ try {
   writeFileSync(
     join(temporaryDirectory, "import.mjs"),
     [
-      'import { capability } from "@irogane/kaji";',
+      'import { capability, memoryStore } from "@irogane/kaji";',
       "const noop = capability({",
       '  name: "smoke.test",',
       "  input: { parse: (value) => value },",
@@ -45,12 +45,21 @@ try {
       "});",
       "if (typeof noop.name !== 'string') throw new Error('capability() did not return a name');",
       "",
+      "const store = memoryStore();",
+      "const claimed = await store.claim({",
+      '  capability: "smoke.test",',
+      '  principalId: "user_1",',
+      '  idempotencyKey: "key_1",',
+      '  inputFingerprint: "fp_1",',
+      "});",
+      "if (claimed.status !== 'claimed') throw new Error('memoryStore() did not grant the first claim');",
+      "",
     ].join("\n"),
   );
   writeFileSync(
     join(temporaryDirectory, "consumer.ts"),
     [
-      'import { capability } from "@irogane/kaji";',
+      'import { capability, memoryStore } from "@irogane/kaji";',
       "",
       "const example = capability({",
       '  name: "smoke.typecheck",',
@@ -60,6 +69,9 @@ try {
       "});",
       "",
       "export type Name = typeof example.name;",
+      "",
+      "const store = memoryStore();",
+      "export type Store = typeof store;",
       "",
     ].join("\n"),
   );
