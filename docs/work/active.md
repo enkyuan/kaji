@@ -1,8 +1,8 @@
 # Active work
 
-Goal: Implement Kaji's single canonical safe execution path using the finalized Capability and ExecutionStore contracts.
-Reference: docs/product.md, docs/invariants.md, docs/api.md
-Owner: implementation
+Goal: Prove Kaji's execution invariants under failure, concurrency, cancellation, timeout, replay, and ambiguity.
+Reference: docs/invariants.md, docs/api.md
+Owner: verification
 State: DONE
 Started: 2026-09-15
-Exit condition: createKaji()/kaji.execute() compose validation, idempotency claim, authorization, approval, capability execution, and settlement into one deterministic path; runtime/type/concurrency tests and full package checks pass.
+Exit condition: every failure/duplicate/cancellation/timeout/settlement state in the frozen contract has a deterministic test asserting execute-call-count; production code is unchanged; all package checks pass; 20 repeated test runs show zero flakiness.
