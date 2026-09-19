@@ -51,7 +51,7 @@ const refund = capability({
   `signal`), and must use the supplied `AbortSignal` cooperatively when the
   underlying operation supports it.
 
-## What a capability is not
+## Non-Goals
 
 `capability()` only declares the action — it validates its own declaration
 (a non-empty `name`, an `authorize` function) at construction time, but
@@ -60,7 +60,7 @@ stays in your application: Kaji must not embed domain-specific behavior
 such as a refund policy, and a capability's `execute` function must remain
 ordinary application code that Kaji only calls through its executor.
 
-## Next
+## Further Reading
 
 - [The executor](/docs/concepts/executor) for how `kaji.execute()` calls
   these hooks in order

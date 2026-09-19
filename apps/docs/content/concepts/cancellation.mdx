@@ -18,7 +18,7 @@ execute: async (input, context) => {
 },
 ```
 
-## Where cancellation is checked
+## Checkpoints
 
 The executor checks the effective signal before every step that hasn't yet
 started a side effect: before claiming the idempotency key, before
@@ -51,7 +51,7 @@ A timeout means Kaji stopped waiting — nothing more. It is not proof that a
 remote side effect didn't happen, and Kaji never automatically retries a
 timed-out execution as though it never started.
 
-## Why timeout and cancellation settle `unknown`
+## Why Unknown
 
 If `execute` has already been called when the effective signal aborts, the
 resulting failure settles `unknown`, not `cancelled` or an ordinary
@@ -61,7 +61,7 @@ into application code has been crossed — so it preserves that ambiguity
 instead of guessing. See [The executor](/docs/concepts/executor) for the
 full outcome contract.
 
-## Next
+## Further Reading
 
 - [The executor](/docs/concepts/executor)
 - [Idempotency and the execution store](/docs/concepts/idempotency) — how a

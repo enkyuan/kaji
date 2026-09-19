@@ -41,7 +41,7 @@ type ApproveHandler = (request: {
 }) => ApprovalDecision | Promise<ApprovalDecision>;
 ```
 
-## Fail-closed by default
+## Fail-Closed
 
 Approval is fail-closed: Kaji only proceeds past an `approval: true` request
 on an explicit `{ approved: true }`. Every other case settles `rejected`
@@ -56,7 +56,7 @@ The optional `evidence` on an approved decision may be retained alongside
 the execution record — use it to note what approval basis was used, such as
 an approver ID or ticket reference.
 
-## Next
+## Further Reading
 
 - [The executor](/docs/concepts/executor) for the full result and status
   contract

@@ -37,7 +37,7 @@ const result = await kaji.execute(refund, {
   Kaji simply aborts its execution signal when the timeout elapses. See
   [Cancellation and timeout](/docs/concepts/cancellation).
 
-## Execution request and context
+## Request & Context
 
 ```ts
 type ExecutionRequest = {
@@ -110,7 +110,7 @@ Kaji never infers this classification from an error's class, message, or
 status code — only application code that can prove no side effect
 committed may throw `knownFailure()`.
 
-## Next
+## Further Reading
 
 - [Idempotency and the execution store](/docs/concepts/idempotency)
 - [Approval](/docs/concepts/approval)

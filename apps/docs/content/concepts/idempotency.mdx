@@ -7,7 +7,7 @@ Every execution request carries a caller-supplied `idempotencyKey`. Kaji
 never generates one itself — the caller decides what "one intended
 operation" means, and Kaji makes sure that operation only ever runs once.
 
-## Claim before execute
+## Claiming
 
 Before authorizing or executing anything, the executor claims the
 idempotency key in the configured `ExecutionStore`:
@@ -26,7 +26,7 @@ rejected request still occupies and settles its idempotency key, so a
 caller retrying a denied request with the same key sees the same denial
 instead of racing a fresh claim.
 
-## The store contract
+## Store Contract
 
 ```ts
 type ExecutionClaim = {
@@ -69,7 +69,7 @@ it does not coordinate across processes. Kaji v0 does not ship a database
 store, distributed lock, or recovery worker; a production deployment
 supplies its own durable `ExecutionStore` implementation.
 
-## Evidence, not an event log
+## Evidence
 
 Every settled execution carries minimal `ExecutionEvidence`:
 
@@ -88,7 +88,7 @@ only what's needed to identify an execution and detect conflicting
 idempotency key reuse. Kaji does not store arbitrary application events,
 conversation transcripts, or full payload history.
 
-## Next
+## Further Reading
 
 - [The executor](/docs/concepts/executor) for the full outcome contract,
   including `unknown`

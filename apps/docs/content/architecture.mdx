@@ -3,7 +3,7 @@ title: Architecture
 description: The one canonical execution path Kaji uses to run a capability, and the boundaries it does and does not own.
 ---
 
-## The execution path
+## Execution Path
 
 `kaji.execute(capability, request)` is the only way a capability runs. There
 is no second path, so no caller can accidentally skip a safety boundary. For
@@ -59,7 +59,7 @@ it.
   caller's signal with its own `timeoutMs` into one effective signal; it
   does not invent a Kaji-specific cancellation token.
 
-## What Kaji does not do
+## Footnotes
 
 Kaji has no agent loop, model provider, tool registry, session or event
 store, CLI, or hosted control plane. An agent framework, MCP server, or
@@ -67,7 +67,7 @@ direct application code decides what action to request; Kaji only governs
 how that one action is safely executed. See `docs/product.md` in the
 repository for the complete non-goal list.
 
-## Next
+## Further Reading
 
 - [Capabilities](/docs/concepts/capability)
 - [The executor](/docs/concepts/executor)

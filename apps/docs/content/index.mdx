@@ -23,7 +23,7 @@ platform, or generic orchestration system. It has no model providers, no
 sessions or event log, no tool registry, and no CLI. It is a small library
 you call directly from a TypeScript backend.
 
-## What Kaji governs
+## Capabilities
 
 Given a **capability** — one named application action such as
 `payments.refund` — Kaji's executor validates input, identifies the caller,
@@ -38,7 +38,7 @@ capability at most once, and records an explicit outcome:
 - an honest `unknown` outcome when a side effect may have happened but
   completion can't be proven
 
-## What Kaji does not provide
+## Non-Goals
 
 Kaji v0 is TypeScript-only and deliberately small. It does not provide LLM or
 model providers, agent loops or planning, workflow orchestration or retry
@@ -56,7 +56,7 @@ repository for the full non-goal list.
 Python and Go exist in the repository as later scaffolds; they are not
 feature-complete ports and do not expand the v0 API.
 
-## Next
+## Further Reading
 
 - [Getting started](/docs/getting-started) — install Kaji and run your first
   governed capability
