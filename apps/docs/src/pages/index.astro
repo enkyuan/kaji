@@ -1,39 +1,454 @@
 ---
+import figlet from "figlet";
 import Base from "@/layouts/base.astro";
+
+const wordmark = figlet.textSync("KAJI", { font: "Alligator" });
+const wordmarkColumns = Math.max(...wordmark.split("\n").map((line) => line.length));
+
+const installCommands = {
+  npm: "npm install @irogane/kaji",
+  bun: "bun add @irogane/kaji",
+  pnpm: "pnpm add @irogane/kaji",
+} as const;
+const packageManagers = Object.keys(installCommands) as (keyof typeof installCommands)[];
 ---
 
-<Base title="Kaji" description="Kaji documentation." activeHref="/" shell="standalone">
+<Base title="Kaji" description="Kaji is the execution layer for agents." activeHref="/" shell="standalone">
+  <script is:inline data-astro-rerun>
+    // Entry-page intro, standalone-shell only (the docs shell has its own
+    // first-visit motion gate in base.astro; the two are intentionally not
+    // shared). First visit: hold the wordmark (data-entry-intro) for a fixed
+    // beat, then swap to data-entry-play to run the exit and content
+    // stagger. The clock is deliberately decoupled from window load: the
+    // font CDN can stall load for seconds, and waiting on it makes the
+    // intro feel stuck and restarts it mid webfont swap. Attributes are set
+    // before the section parses, so there is no flash of the resting state.
+    try {
+      if (sessionStorage.getItem("kaji-entry-played") === null) {
+        sessionStorage.setItem("kaji-entry-played", "");
+        const root = document.documentElement;
+        const HOLD_MS = 1400; // wordmark dwell after first paint
+        const CLEANUP_MS = 1300; // > last animation end (900ms delay + 360ms fade)
+        let started = false;
+        const startIntro = () => {
+          if (started) return;
+          started = true;
+          delete root.dataset.entryIntro;
+          root.dataset.entryPlay = "";
+          // Drop the intro attributes once every animation has finished so
+          // the page rests in the plain no-attribute state (and releases
+          // will-change layers).
+          window.setTimeout(() => {
+            delete root.dataset.entryPlay;
+          }, CLEANUP_MS);
+        };
+        root.dataset.entryIntro = "";
+        window.setTimeout(startIntro, HOLD_MS);
+      }
+    } catch {
+      // Storage unavailable: render the resting state without the intro.
+    }
+  </script>
   <section class="entry-route" aria-label="Kaji documentation">
-    <a class="entry-button" href="/introduction">Introduction</a>
+    <span class="sr-only">Kaji</span>
+    <div class="entry-hero">
+      <pre
+        aria-hidden="true"
+        class="entry-wordmark"
+        style={`--entry-wordmark-columns: ${wordmarkColumns}ch`}
+      >{wordmark}</pre>
+
+      <div class="entry-definition">
+        <p class="entry-definition-headword">
+          Kaji <span class="entry-definition-pronunciation">/ˈkɑː.dʑi/</span>
+        </p>
+        <ol class="entry-definition-senses">
+          <li>
+            <span class="entry-definition-gloss">鍛冶</span> — blacksmithing; forging: to heat and
+            hammer metal into a tool.
+          </li>
+          <li>The execution layer for agents.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div
+      class="entry-install doc-content"
+      data-package-manager-tabs
+      data-install-commands={JSON.stringify(installCommands)}
+    >
+      <div class="entry-install-frame">
+        <div class="tab-list" role="tablist" aria-label="Package manager">
+          {
+            packageManagers.map((manager, index) => (
+              <button
+                type="button"
+                role="tab"
+                data-package-manager={manager}
+                aria-selected={index === 0 ? "true" : "false"}
+                tabindex={index === 0 ? 0 : -1}
+              >
+                {manager}
+              </button>
+            ))
+          }
+        </div>
+        <pre data-install-command><code>{installCommands.npm}</code></pre>
+      </div>
+    </div>
+
+    <div class="entry-actions">
+      <a class="entry-button" href="https://github.com/enkyuan/kaji" target="_blank" rel="noopener noreferrer">
+        github
+      </a>
+      <a class="entry-button" href="/introduction">docs</a>
+      <a class="entry-button" href="https://github.com/enkyuan/kaji" target="_blank" rel="noopener noreferrer">
+        star
+      </a>
+    </div>
   </section>
 </Base>
+
+<script>
+  const initPackageManagerTabs = () => {
+    const container = document.querySelector<HTMLElement>("[data-package-manager-tabs]");
+    if (!container) return;
+
+    const commandsAttribute = container.dataset.installCommands;
+    if (!commandsAttribute) return;
+
+    const commands = JSON.parse(commandsAttribute) as Record<string, string>;
+    const buttons = container.querySelectorAll<HTMLButtonElement>("[data-package-manager]");
+    const codeElement = container.querySelector<HTMLElement>("[data-install-command] code");
+    if (!codeElement) return;
+
+    const select = (manager: string) => {
+      const command = commands[manager];
+      if (command === undefined) return;
+
+      codeElement.textContent = command;
+      for (const button of buttons) {
+        const selected = button.dataset.packageManager === manager;
+        button.setAttribute("aria-selected", String(selected));
+        button.tabIndex = selected ? 0 : -1;
+      }
+    };
+
+    for (const button of buttons) {
+      button.addEventListener("click", () => select(button.dataset.packageManager ?? ""));
+    }
+  };
+
+  document.addEventListener("astro:page-load", initPackageManagerTabs);
+</script>
 
 <style>
   .entry-route {
     display: grid;
     min-height: 100svh;
-    place-items: center;
+    place-content: center;
+    justify-items: stretch;
+    gap: 1.5rem;
+    padding: 2rem 1.5rem;
+  }
+
+  /*
+   * The wordmark and the definition block occupy the same grid cell so the
+   * definition can take over the wordmark's exact position the moment the
+   * wordmark clears, with no layout shift and no JS position calculation.
+   */
+  .entry-hero {
+    position: relative;
+    display: grid;
+    grid-template-areas: "hero";
+  }
+
+  .entry-hero > * {
+    grid-area: hero;
+  }
+
+  /*
+   * The wordmark is splash-only: it exists for the intro choreography and is
+   * fully replaced by the definition block below (it never shrinks into a
+   * header). Default is the resting state, so it renders only while the
+   * intro attributes from the script above are present.
+   */
+  .entry-wordmark {
+    /* Absolutely centered over the definition so the wide FIGlet block
+     * never drives the shared column width — the definition block does. */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* `ch` is the advance width of the font's "0" glyph, not a guaranteed
+     * exact match for every other glyph's advance width in every monospace
+     * font. Across 53 columns that per-glyph rounding can compound into a
+     * few px of drift, which `overflow: hidden` then clips from the last
+     * column (visible as a cut-off final letter). A small fixed pad
+     * absorbs that drift without letting the block affect layout, since
+     * `white-space: pre` already prevents it from wrapping or reflowing. */
+    width: calc(var(--entry-wordmark-columns) + 1ch);
+    max-width: 100%;
+    margin: 0;
+    display: none;
+    color: var(--text-primary);
+    /* System monospace: the FIGlet art is decorative (aria-hidden) and must
+     * keep its shape for the whole intro; a webfont landing mid-animation
+     * would re-shape it frame to frame. */
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: clamp(0.45rem, 1.1vw, 1rem);
+    line-height: 1.05;
+    white-space: pre;
+  }
+
+  /* Blur and opacity ease out together for the whole duration instead of
+   * holding blur flat at the end (that hold read as a stutter, not a
+   * fade). A slight scale keeps the exit from feeling like a flat cut. */
+  @keyframes entry-wordmark-exit {
+    from {
+      filter: blur(0);
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+      filter: blur(6px);
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1.02);
+    }
+  }
+
+  /* Intro states set by the inline script: data-entry-intro holds the
+   * wordmark while the page loads; data-entry-play runs the exit and the
+   * content stagger. No attributes (repeat visits, no-JS) is the resting
+   * state: wordmark hidden, content visible, nothing animates. */
+  :global(html[data-entry-intro]) .entry-wordmark,
+  :global(html[data-entry-play]) .entry-wordmark {
+    display: block;
+  }
+
+  :global(html[data-entry-play]) .entry-wordmark {
+    animation: entry-wordmark-exit 480ms 200ms both var(--ease-out);
+    will-change: opacity, filter, transform;
+  }
+
+  :global(html[data-entry-intro]) .entry-definition,
+  :global(html[data-entry-intro]) .entry-install,
+  :global(html[data-entry-intro]) .entry-actions,
+  :global(html[data-entry-intro]) .entry-actions .entry-button {
+    opacity: 0;
+    filter: blur(4px);
+  }
+
+  :global(html[data-entry-play]) .entry-definition,
+  :global(html[data-entry-play]) .entry-install,
+  :global(html[data-entry-play]) .entry-actions,
+  :global(html[data-entry-play]) .entry-actions .entry-button {
+    opacity: 0;
+    filter: blur(4px);
+    animation-name: entry-blur-fade;
+    animation-duration: 360ms;
+    animation-timing-function: var(--ease-out);
+    animation-fill-mode: forwards;
+    /* Layer promotion for the six elements animating blur + opacity at
+     * once; removed with the data-entry-play attribute after the intro. */
+    will-change: opacity, filter;
+  }
+
+  .entry-definition {
+    display: grid;
+    gap: 0.375rem;
+    justify-items: start;
+    text-align: left;
+    /* Starts only after the wordmark's exit animation (200ms delay + 480ms
+     * run) has fully finished clearing the same grid cell. Any overlap
+     * puts two different glyph sets mid-blur in the same region at once,
+     * which reads as one text morphing into the other instead of a clean
+     * dissolve-then-appear. */
+    animation-delay: 680ms;
+  }
+
+  .entry-definition-headword {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    font-family: var(--font-title);
+    font-size: 1.125rem;
+  }
+
+  .entry-definition-pronunciation {
+    color: var(--text-muted);
+    font-family: var(--font-code);
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+
+  .entry-definition-senses {
+    display: grid;
+    gap: 0.2rem;
+    padding-left: 1.125rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .entry-definition-senses li::marker {
+    color: var(--text-faint);
+  }
+
+  .entry-definition-gloss {
+    color: var(--text-primary);
+    font-family: var(--font-title);
+  }
+
+  .entry-install {
+    display: grid;
+    width: 100%;
+    animation-delay: 760ms;
+  }
+
+  /*
+   * The tab list renders as the frame's header row, inside the same
+   * bordered surface as the code panel below it, instead of as a separate
+   * row above a detached codeblock.
+   */
+  .entry-install-frame {
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--line-subtle);
+    border-radius: 8px;
+    background: var(--surface-muted);
+  }
+
+  .entry-install-frame .tab-list {
+    display: flex;
+    column-gap: 1.25rem;
+    margin: 0;
+    /* Align tab labels with the command text below, which uses 1rem
+     * horizontal padding, so the two rows read as one surface. */
+    padding-inline: 1rem;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .entry-install-frame .tab-list button {
+    border-radius: 0;
+    background: transparent;
+    padding: 0.55rem 0;
+    text-transform: none;
+  }
+
+  .entry-install-frame .tab-list button[aria-selected="true"] {
+    position: relative;
+    color: var(--heading-color);
+    background: transparent;
+  }
+
+  .entry-install-frame .tab-list button[aria-selected="true"]::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 1px;
+    background: var(--gunjo-iro);
+    content: "";
+  }
+
+  .entry-install-frame [data-install-command] {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* The copy-script wraps the command line in a runtime-created .code-frame
+   * (margin + border + radius + copy button). Inside the tab frame that
+   * reads as an inset box, so flatten it into the frame's own code panel:
+   * the frame owns the single border, the panel edge below the tabs stays
+   * square, and the frame's border-radius clips the bottom corners.
+   * :global is required because the wrapper is created by client script and
+   * never receives this component's Astro scope attribute, so a scoped
+   * selector would not match it. */
+  .entry-install-frame :global(.code-frame) {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .entry-actions {
+    display: flex;
+    column-gap: 1rem;
+    width: 100%;
+  }
+
+  .entry-actions .entry-button:nth-child(1) {
+    animation-delay: 840ms;
+  }
+
+  .entry-actions .entry-button:nth-child(2) {
+    animation-delay: 900ms;
+  }
+
+  .entry-actions .entry-button:nth-child(3) {
+    animation-delay: 960ms;
+  }
+
+  /* 4px instead of 6px: at this element size the extra 2px added compositing
+   * cost without a visible difference, which is what made the fade read as
+   * choppy on lower-end GPUs. */
+  @keyframes entry-blur-fade {
+    from {
+      opacity: 0;
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+    }
   }
 
   .entry-button {
     display: inline-flex;
     align-items: center;
-    min-height: 2.5rem;
+    min-height: 2.25rem;
     padding: 0.5rem 0.875rem;
-    border: 1px solid var(--line-default);
     color: var(--text-primary);
     font-family: var(--font-sans);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     text-decoration: none;
+    transition: background 140ms var(--ease-out);
   }
 
-  .entry-button:hover {
-    border-color: var(--sango-iro-ink);
-    color: var(--sango-iro-ink);
+  @media (hover: hover) and (pointer: fine) {
+    .entry-button:hover {
+      background: var(--surface-raised);
+    }
+  }
+
+  .entry-button:active {
+    transform: scale(0.96);
   }
 
   .entry-button:focus-visible {
     outline: 2px solid var(--gunjo-iro);
     outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(html[data-entry-intro]) .entry-wordmark,
+    :global(html[data-entry-play]) .entry-wordmark {
+      display: none;
+    }
+
+    :global(html[data-entry-intro]) .entry-definition,
+    :global(html[data-entry-intro]) .entry-install,
+    :global(html[data-entry-intro]) .entry-actions,
+    :global(html[data-entry-intro]) .entry-actions .entry-button,
+    :global(html[data-entry-play]) .entry-definition,
+    :global(html[data-entry-play]) .entry-install,
+    :global(html[data-entry-play]) .entry-actions,
+    :global(html[data-entry-play]) .entry-actions .entry-button {
+      animation: none;
+      filter: none;
+      opacity: 1;
+    }
   }
 </style>

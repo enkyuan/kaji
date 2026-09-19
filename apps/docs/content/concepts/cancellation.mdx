@@ -1,6 +1,6 @@
 ---
-title: Cancellation and Timeout
-description: Kaji uses native AbortSignal for cooperative cancellation; a timeout means Kaji stopped waiting, not that a side effect was rolled back.
+title: Timeout
+description: "Native `AbortSignal` is used for cooperative cancellation; a timeout means Kaji stopped waiting, not that a side effect was rolled back."
 ---
 
 Kaji uses the platform's native `AbortSignal` instead of a Kaji-specific
@@ -58,11 +58,11 @@ resulting failure settles `unknown`, not `cancelled` or an ordinary
 `failed`. Kaji cannot distinguish "the side effect never started" from "the
 side effect committed and the acknowledgement was lost" once the boundary
 into application code has been crossed — so it preserves that ambiguity
-instead of guessing. See [The executor](/docs/concepts/executor) for the
+instead of guessing. See [Execution](/docs/concepts/executor) for the
 full outcome contract.
 
 ## Further Reading
 
-- [The executor](/docs/concepts/executor)
-- [Idempotency and the execution store](/docs/concepts/idempotency) — how a
+- [Execution](/docs/concepts/executor)
+- [Idempotency](/docs/concepts/idempotency) — how a
   retried `unknown` execution avoids re-running the side effect

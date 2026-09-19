@@ -5,7 +5,7 @@ import Base from "@/layouts/base.astro";
 const headings = [
   { depth: 2, slug: "what-is-kaji", text: "What is Kaji?" },
   { depth: 2, slug: "how-it-works", text: "How it works" },
-  { depth: 2, slug: "what-kaji-is-not", text: "What Kaji is not" },
+  { depth: 2, slug: "what-kaji-is-not", text: "What Kaji isn't" },
 ];
 ---
 
@@ -27,7 +27,7 @@ const headings = [
         <code>cancelBooking()</code>, and <code>sendEmail()</code>. When autonomous software can call
         those functions, every caller otherwise needs to solve caller identity, input validation,
         authorization, human approval, idempotency, cancellation, timeouts, ambiguous side effects,
-        and execution evidence on its own. Kaji standardizes that boundary once.
+        and execution evidence on its own. Kaji is meant to standardize this process.
       </p>
       <p>
         It is a library, not a hosted control plane: identity, authorization, and storage stay with
@@ -47,7 +47,7 @@ const headings = [
     </section>
 
     <section>
-      <h2 id="what-kaji-is-not">What Kaji is not</h2>
+      <h2 id="what-kaji-is-not">What Kaji isn't</h2>
       <ul>
         <li><strong>Not an agent framework.</strong> Kaji has no model providers and no agent loop; an agent framework, MCP server, or direct application code decides what to request.</li>
         <li><strong>Not a workflow engine.</strong> Kaji does not orchestrate multi-step workflows, schedule retries, or recover distributed tasks.</li>

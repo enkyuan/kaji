@@ -1,6 +1,6 @@
 ---
-title: The Executor
-description: createKaji() builds the one canonical entry point that validates, authorizes, approves, executes, and records every governed capability call.
+title: Execution
+description: "`createKaji()` builds the one canonical entry point that validates, authorizes, approves, executes, and records every governed capability call."
 ---
 
 `createKaji()` creates the Kaji executor — the one entry point that runs a
@@ -27,7 +27,7 @@ const result = await kaji.execute(refund, {
 
 - **`store`** is the required `ExecutionStore` the executor uses to claim
   idempotency keys and record outcomes. See
-  [Idempotency and the execution store](/docs/concepts/idempotency).
+  [Idempotency](/docs/concepts/idempotency).
 - **`approve`** is required only if any capability can set `approval` to
   `true`. It receives the capability name, principal ID, validated input,
   and idempotency key, and returns (or throws before returning) an approval
@@ -35,7 +35,7 @@ const result = await kaji.execute(refund, {
 - **`timeoutMs`** bounds how long Kaji waits for an execution. It does not
   roll back a side effect or prove that a remote operation didn't occur —
   Kaji simply aborts its execution signal when the timeout elapses. See
-  [Cancellation and timeout](/docs/concepts/cancellation).
+  [Timeout](/docs/concepts/cancellation).
 
 ## Request & Context
 
@@ -112,6 +112,6 @@ committed may throw `knownFailure()`.
 
 ## Further Reading
 
-- [Idempotency and the execution store](/docs/concepts/idempotency)
+- [Idempotency](/docs/concepts/idempotency)
 - [Approval](/docs/concepts/approval)
-- [Cancellation and timeout](/docs/concepts/cancellation)
+- [Timeout](/docs/concepts/cancellation)

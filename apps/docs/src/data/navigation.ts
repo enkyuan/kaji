@@ -21,10 +21,10 @@ export const navigation: NavigationSection[] = [
     label: "Concepts",
     items: [
       { href: "/docs/concepts/capability", label: "Capabilities" },
-      { href: "/docs/concepts/executor", label: "The Executor" },
+      { href: "/docs/concepts/executor", label: "Execution" },
       { href: "/docs/concepts/approval", label: "Approval" },
-      { href: "/docs/concepts/idempotency", label: "Idempotency & Execution Store" },
-      { href: "/docs/concepts/cancellation", label: "Cancellation & Timeout" },
+      { href: "/docs/concepts/idempotency", label: "Idempotency" },
+      { href: "/docs/concepts/cancellation", label: "Timeout" },
     ],
   },
   {
