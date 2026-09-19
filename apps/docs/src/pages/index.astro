@@ -354,6 +354,11 @@ const packageManagers = Object.keys(installCommands) as (keyof typeof installCom
 
   .entry-install-frame [data-install-command] {
     margin: 0;
+    /* Tighter than the docs panels (0.875rem) and equal to the tab row's
+     * vertical padding: a one-line command does not need document-panel
+     * height, and header + panel read as one rhythm. !important is needed
+     * to beat .doc-content pre's !important shorthand. */
+    padding: 0.55rem 1rem !important;
     border: 0;
     border-radius: 0;
   }
@@ -371,6 +376,13 @@ const packageManagers = Object.keys(installCommands) as (keyof typeof installCom
     border: 0;
     border-radius: 0;
     background: transparent;
+  }
+
+  /* Center the copy button in the short panel: the global top: 0.55rem
+   * offset assumes the taller docs code blocks. 14px is half the 28px
+   * button height. */
+  .entry-install-frame :global(.code-frame .code-copy) {
+    top: calc(50% - 14px);
   }
 
   .entry-actions {
