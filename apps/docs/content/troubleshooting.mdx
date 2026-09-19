@@ -1,135 +1,135 @@
 ---
 title: Troubleshooting
-description: Diagnose common TypeScript and Python SDK setup, provider, tool, and event-history failures.
+description: Diagnose common capability, executor, and execution-store failures.
 ---
 
 Start with the first error you can reproduce, then apply the matching fix.
 
-## Cannot find package `kaji`
+## `capability() requires a non-empty name.`
 
-TypeScript `0.3.0-alpha.1` is a local release candidate, not a public npm
-package. Build or obtain its tarball, then install it with its required peer:
+`capability({ name })` must be a non-empty string. This is thrown at
+construction time, before the capability is ever executed.
 
-```bash
-npm install ./irogane-kaji-0.3.0-alpha.1.tgz zod
-```
+## `capability() requires an authorize function.`
 
-If the tarball is unavailable, rebuild it from this checkout with
-`bun run --cwd kaji/packages/ts package:smoke`. Python remains unavailable from
-PyPI for this release.
+Every capability must declare `authorize`. There is no default policy —
+Kaji does not decide who may run an action, so an omitted `authorize` fails
+fast instead of defaulting to allow or deny.
 
-## Cannot find package `openai`
+## `ExecutionRequest.principalId must be a non-empty string.` / `...idempotencyKey must be a non-empty string.`
 
-The OpenAI adapter imports its optional peer only when selected. In a consumer
-project that already has an installable Kaji artifact, add the OpenAI client
-within the declared peer range:
+Both fields are required on every call to `kaji.execute()`. Kaji never
+infers a principal or generates an idempotency key on the caller's behalf —
+supply both explicitly from your request.
 
-```bash
-npm install "openai@>=4 <8"
-# or: bun add "openai@>=4 <8"
-```
-
-If you only use `MockProvider` from `@irogane/kaji/testing`, you can omit `openai`.
-
-## `OPENAI_API_KEY` is required
-
-The `openai()` factory could not resolve a key from its options or
-`OPENAI_API_KEY`, or `OpenAIProvider` received a blank explicit key. Export the
-variable or load it from an ignored or encrypted environment file:
-
-```bash
-export OPENAI_API_KEY=sk-...
-```
-
-Generated TypeScript projects use dotenvx in their `start` script. The
-Anthropic, OpenRouter, Kimi, and Gemini paths use their own documented keys and
-remain WIP; they are not fallback credentials for OpenAI.
-
-## Peer dependency version mismatch
-
-The declared ranges are `zod >=4.3 <5` and `openai >=4 <8`. Zod is required;
-OpenAI is optional. The WIP Anthropic adapter, whose machine tier is
-`experimental`, separately declares `@anthropic-ai/sdk >=0.30 <2`. Upgrade or
-pin the conflicting workspace dependency to a declared range.
-
-## `MISSING_TOOL_IDENTITY` or unclassified tool risk
-
-Every enabled tool needs an explicit risk classification. Every turn that can
-execute a tool needs a caller principal:
+## A retried request returns a `failed` conflict instead of running again
 
 ```ts
-await runtime.turn("Run the tool", {
-  context: { principalId: "my-app" },
-});
+error: new Error('Idempotency key "..." was already used for a different request.');
 ```
 
-Do not hardcode a shared principal inside a handler. Text-only runtimes may
-omit identity.
+The idempotency key was already claimed with a different input,
+capability, or principal. One idempotency key identifies exactly one
+intended operation; reusing it for a materially different request is a
+conflict, not a retry. Generate a new idempotency key for a genuinely new
+operation.
 
-## Tool calls never fire
+## A request I expected to execute returns the previous result instead
 
-Check these boundaries in order:
+This is expected, not a bug: a repeated execution with the same capability,
+principal, idempotency key, and input fingerprint returns the recorded
+outcome instead of running `execute` again. If you intended a new
+operation, use a new idempotency key.
 
-1. Confirm the capability's `input` schema matches the calling payload; schema
-   mismatches raise `ToolArgumentValidationError` before execution.
-2. Confirm the capability's `risk` is classified and the policy for that risk
-   is satisfied; a required approval without an `approvalHandler` fails with
-   `APPROVAL_UNAVAILABLE`.
-3. Reuse a `sessionId` only when you want the recorded result; changed input
-   under the same session identity raises `ToolExecutionError`.
+## `execute()` settles `rejected`
 
-## Event history is empty after a turn
+Approval was required (`approval` returned `true`) and was not granted.
+Check, in order:
 
-`runtime.history(sessionId)` reads from the `EventStore` supplied to the
-runtime, or its default `InMemoryEventStore`. Reuse the same store between the
-turn and the read. Page with `afterSequence`; persisted sequence, not
-timestamp, defines order.
+1. Is `approve` configured on `createKaji()` at all? An absent handler
+   always settles `rejected`.
+2. Does your `approve` handler return `{ approved: boolean }`? Any other
+   shape is treated as an invalid decision and settles `rejected`.
+3. Did your `approve` handler throw or reject? A handler error settles
+   `rejected`, not `unknown` — approval failures are never ambiguous about
+   whether the action ran, because it hasn't yet.
 
-To consume events as they are committed, subscribe through the committer. See
-[event delivery](/docs/concepts/event-bus).
+## `execute()` settles `denied`
 
-## Provider request failed
+`authorize` returned `false`, or it threw before returning. Kaji does not
+provide an authorization system — the decision is entirely your
+application's `authorize` function. Add logging inside `authorize` itself
+if you need to know why a specific request was denied.
 
-Catch `ProviderError` from the package root and normalize it:
+## `execute()` settles `unknown` and I want to retry
+
+Read `unknown` as "Kaji cannot prove whether the side effect happened," not
+as an ordinary failure. Do not retry it automatically. Instead:
+
+1. Use `result.evidence` (`executionId`, `inputFingerprint`) to look up
+   whatever your application or downstream provider can tell you about
+   this specific operation.
+2. If your capability's `execute` function can reconcile the ambiguity
+   itself — for example, checking the provider for an existing committed
+   effect by idempotency key — do that before deciding to retry.
+3. Only call `kaji.execute()` again with the _same_ idempotency key once
+   you're ready to accept its behavior: a repeated call with the same key
+   and input still returns the recorded `unknown` result rather than
+   re-running `execute`. To force a genuinely new attempt, use a new
+   idempotency key, and only after you've confirmed the original operation
+   did not commit.
+
+## My capability's own errors are always `unknown`, never `failed`
+
+Kaji treats every thrown or rejected `execute` call as `unknown` by
+default — it has no way to know whether your side effect committed before
+the error surfaced. If your application code can prove a specific failure
+never committed a side effect (for example, a payment provider that
+confirms a charge was declined before any charge occurred), throw
+`knownFailure(cause)` for that specific case:
 
 ```ts
-import { normalizeProviderError, ProviderError } from "@irogane/kaji";
+import { knownFailure } from "@irogane/kaji";
 
-try {
-  await runtime.turn("Hello");
-} catch (error) {
-  if (error instanceof ProviderError) {
-    const failure = normalizeProviderError(error);
-    console.error(failure.code, failure.retryable);
+execute: async (input, context) => {
+  try {
+    return await provider.charge(input);
+  } catch (cause) {
+    if (isDefinitelyDeclined(cause)) throw knownFailure(cause);
+    throw cause; // stays unknown: the side effect may have committed
   }
-}
+},
 ```
 
-The normalized fields are safe for routing and retry policy. Do not log vendor
-exceptions, response bodies, causes, prompts, credentials, headers, or tool
-arguments.
+Kaji never infers this from an error's class, message, or status code —
+only throw `knownFailure()` when your own code has proven no side effect
+occurred.
 
-## Python SDK issues
+## Cancellation didn't stop my side effect
 
-### `ModuleNotFoundError: No module named 'openai'`
+Cancellation is cooperative. If your capability's `execute` function
+doesn't check `context.signal` (or pass it to an operation that does), Kaji
+cannot force it to stop. Once `execute` has been called, an aborted signal
+can no longer prevent the action — it can only ask the capability to stop,
+and the resulting outcome settles `unknown` rather than `cancelled`.
 
-The Python distribution is unavailable from PyPI for this release. In a source
-checkout, install the provider extra through the project environment:
+## `timeoutMs` elapsed but the remote operation still ran
 
-```bash
-uv sync --project kaji/packages/py --extra openai
-```
+A timeout means Kaji stopped waiting — it is not a rollback and is not
+proof the operation didn't happen. The corresponding execution settles
+`unknown`. If you need to know the real outcome, reconcile with the
+downstream system using the execution's idempotency key, the same as any
+other `unknown` result.
 
-### Control top-level import loading
+## My custom `ExecutionStore` throws during `claim()` or `record()`
 
-The top-level package uses PEP 562 lazy loading. First access to a symbol
-imports its submodule. Import a specific name from its public subpackage when
-you need to control that first-access cost.
+A `claim()` failure causes `kaji.execute()` itself to throw — Kaji cannot
+establish the execution boundary at all in that case, since no execution
+record exists yet. A `record()` failure after execution instead settles the
+returned result as `unknown`: Kaji cannot prove the outcome was durably
+recorded, so it can't tell the caller the capability's real result.
 
-### `kaji` is not on `PATH` after source setup
-
-Run the CLI through the project environment:
-
-```bash
-uv run --project kaji/packages/py kaji --help
-```
+`memoryStore()` is process-local and non-durable; it is meant for local
+development, tests, and examples, not production. A production deployment
+needs its own durable `ExecutionStore` implementation satisfying the same
+claim/record contract.

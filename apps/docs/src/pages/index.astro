@@ -1,130 +1,39 @@
 ---
-import Footer from "@/components/site/footer.astro";
-import Demo from "@/components/site/demo.astro";
 import Base from "@/layouts/base.astro";
-import { ArrowRight, Copy } from "reicon";
-
-const headings = [
-  { depth: 2, slug: "what-is-kaji", text: "What is Kaji?" },
-  { depth: 2, slug: "how-it-works", text: "How it works" },
-  { depth: 2, slug: "built-for-bounded-agents", text: "Built for bounded agents" },
-  { depth: 2, slug: "start-with-typescript", text: "Start with TypeScript" },
-];
-const arrowIcon = ArrowRight.toSvg({
-  size: 14,
-  color: "currentColor",
-  className: "quickstart-icon",
-});
-const copyIcon = Copy.toSvg({
-  size: 14,
-  color: "currentColor",
-});
 ---
 
-<Base
-  title="Kaji"
-  description="Build bounded agents in TypeScript."
-  activeHref="/"
-  headings={headings}
->
-  <article class="article overview-article">
-    <header>
-      <div class="heading-container">
-        <h1 class="hero-title">
-          Build agents<span class="hero-stop">.</span><br />
-          In <span class="forged-underline">your runtime.</span>
-        </h1>
-        <button
-          class="install-snippet"
-          type="button"
-          aria-label="Copy local alpha install command"
-          data-copy="npm i ./irogane-kaji-0.3.0-alpha.1.tgz zod"
-        >
-          <code>npm i ./irogane-kaji-0.3.0-alpha.1.tgz zod</code>
-          <Fragment set:html={copyIcon} />
-        </button>
-      </div>
-      <p class="tagline">
-        Kaji is an embeddable TypeScript agent runtime with event-sourced sessions, bounded tool
-        execution, and pluggable model providers.
-      </p>
-    </header>
-
-    <Demo />
-
-    <section>
-      <h2 id="what-is-kaji">What is Kaji?</h2>
-      <p>
-        Kaji gives your TypeScript application the runtime loop between a user message, a model
-        provider, and the tools an agent may call. It is a library, not a hosted control plane, so
-        identity, credentials, storage, and policy stay with your application.
-      </p>
-      <p>
-        The TypeScript SDK is the primary path in these docs. A Python SDK implements the same core
-        event and tool contracts for applications that need cross-language replay.
-      </p>
-    </section>
-
-    <section>
-      <h2 id="how-it-works">How it works</h2>
-      <ol>
-        <li><strong>Build</strong> a runtime with a provider, tools, and an optional policy.</li>
-        <li><strong>Send</strong> a user turn with explicit caller context.</li>
-        <li><strong>Validate</strong> each model-selected tool call before execution.</li>
-        <li><strong>Store</strong> the resulting events in append order.</li>
-        <li><strong>Replay</strong> those events into deterministic session state.</li>
-      </ol>
-    </section>
-
-    <section>
-      <h2 id="built-for-bounded-agents">Built for bounded agents</h2>
-      <ul>
-        <li><strong>Event-sourced sessions</strong> make state inspectable and replayable.</li>
-        <li><strong>Risk-classified tools</strong> keep approval and identity at the call boundary.</li>
-        <li><strong>Provider adapters</strong> normalize failures without leaking vendor internals.</li>
-        <li><strong>Execution limits</strong> bound turns, tool concurrency, payloads, and shutdown.</li>
-        <li><strong>Typed composition</strong> keeps providers, tools, and runtime context explicit.</li>
-      </ul>
-    </section>
-
-    <section>
-      <h2 id="start-with-typescript">Start with TypeScript</h2>
-      <div class="runtime-options">
-        <div>
-          <h3>TypeScript</h3>
-          <code>npm install ./irogane-kaji-0.3.0-alpha.1.tgz zod</code>
-        </div>
-        <div>
-          <h3>Python (repository checkout)</h3>
-          <code>uv sync --project kaji/packages/py</code>
-        </div>
-      </div>
-      <p>
-        TypeScript <code>0.3.0-alpha.1</code> is a local release candidate, not an npm publication. Start with the deterministic mock
-        provider, then configure OpenAI, the stable live-provider adapter. Every other adapter
-        remains WIP. Python onboarding still requires a repository checkout; PyPI publication is
-        deferred.
-      </p>
-    </section>
-
-    <section class="quickstart-links">
-      <p>
-        <a href="/docs/getting-started">
-          Run your first agent turn <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
-        </a>
-      </p>
-      <p>
-        <a href="/docs/concepts/runtime">
-          Understand the runtime loop <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
-        </a>
-      </p>
-      <p>
-        <a href="/docs/integrations">
-          Browse the integration catalog <span aria-hidden="true"><Fragment set:html={arrowIcon} /></span>
-        </a>
-      </p>
-    </section>
-  </article>
-
-  <Footer />
+<Base title="Kaji" description="Kaji documentation." activeHref="/" shell="standalone">
+  <section class="entry-route" aria-label="Kaji documentation">
+    <a class="entry-button" href="/introduction">Introduction</a>
+  </section>
 </Base>
+
+<style>
+  .entry-route {
+    display: grid;
+    min-height: 100svh;
+    place-items: center;
+  }
+
+  .entry-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--line-default);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    text-decoration: none;
+  }
+
+  .entry-button:hover {
+    border-color: var(--sango-iro-ink);
+    color: var(--sango-iro-ink);
+  }
+
+  .entry-button:focus-visible {
+    outline: 2px solid var(--gunjo-iro);
+    outline-offset: 3px;
+  }
+</style>

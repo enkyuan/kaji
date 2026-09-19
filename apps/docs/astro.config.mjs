@@ -53,7 +53,7 @@ export default defineConfig({
   integrations: [mdx(), agentation()],
   markdown: {
     shikiConfig: {
-      theme: "github-light",
+      theme: "github-dark",
       wrap: true,
     },
   },

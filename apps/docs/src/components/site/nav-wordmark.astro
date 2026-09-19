@@ -1,0 +1,19 @@
+---
+interface Props {
+  current?: boolean;
+}
+
+const { current = false } = Astro.props;
+---
+
+{
+  current ? (
+    <span class="kaji-wordmark" aria-current="page" aria-label="Kaji documentation">
+      <img class="kaji-wordmark-logo" src="/logo.svg" alt="" width="48" height="48" />
+    </span>
+  ) : (
+    <a class="kaji-wordmark" href="/introduction" aria-label="Kaji documentation">
+      <img class="kaji-wordmark-logo" src="/logo.svg" alt="" width="48" height="48" />
+    </a>
+  )
+}

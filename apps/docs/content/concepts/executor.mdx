@@ -1,0 +1,117 @@
+---
+title: The Executor
+description: createKaji() builds the one canonical entry point that validates, authorizes, approves, executes, and records every governed capability call.
+---
+
+`createKaji()` creates the Kaji executor — the one entry point that runs a
+capability safely.
+
+```ts
+import { createKaji, memoryStore } from "@irogane/kaji";
+
+const kaji = createKaji({
+  store: memoryStore(),
+  approve: async (request) => requestHumanApproval(request),
+  timeoutMs: 30_000,
+});
+
+const result = await kaji.execute(refund, {
+  input: { paymentId: "pay_123", amount: 750 },
+  principalId: user.id,
+  idempotencyKey: request.id,
+  signal: request.signal,
+});
+```
+
+## Options
+
+- **`store`** is the required `ExecutionStore` the executor uses to claim
+  idempotency keys and record outcomes. See
+  [Idempotency and the execution store](/docs/concepts/idempotency).
+- **`approve`** is required only if any capability can set `approval` to
+  `true`. It receives the capability name, principal ID, validated input,
+  and idempotency key, and returns (or throws before returning) an approval
+  decision. See [Approval](/docs/concepts/approval).
+- **`timeoutMs`** bounds how long Kaji waits for an execution. It does not
+  roll back a side effect or prove that a remote operation didn't occur —
+  Kaji simply aborts its execution signal when the timeout elapses. See
+  [Cancellation and timeout](/docs/concepts/cancellation).
+
+## Execution request and context
+
+```ts
+type ExecutionRequest = {
+  input: unknown;
+  principalId: string;
+  idempotencyKey: string;
+  signal?: AbortSignal;
+};
+
+type ExecutionContext = {
+  principalId: string;
+  idempotencyKey: string;
+  signal: AbortSignal;
+};
+```
+
+`principalId` and `idempotencyKey` must be non-empty strings, and the caller
+always supplies both — Kaji never infers either from process state. The
+context signal a capability's `execute` receives combines the caller's
+signal with Kaji's optional `timeoutMs`, using native `AbortSignal`
+semantics.
+
+## Results
+
+`execute()` resolves with an explicit result for every governed execution.
+It does not throw for expected outcomes — only when Kaji cannot establish
+the execution boundary at all, such as an invalid executor configuration or
+an unrecoverable store error before any execution record exists.
+
+```ts
+type ExecutionResult<Result> =
+  | { status: "succeeded"; result: Result; evidence: ExecutionEvidence }
+  | {
+      status: "denied" | "rejected" | "failed" | "cancelled";
+      error: unknown;
+      evidence: ExecutionEvidence;
+    }
+  | { status: "unknown"; error: unknown; evidence: ExecutionEvidence };
+```
+
+| Status      | Meaning                                                           |
+| ----------- | ----------------------------------------------------------------- |
+| `succeeded` | `execute` returned successfully.                                  |
+| `denied`    | Authorization did not allow the action.                           |
+| `rejected`  | Required approval was unavailable or not granted.                 |
+| `failed`    | Kaji knows the action did not start or did not succeed.           |
+| `cancelled` | Cancellation prevented side-effect execution.                     |
+| `unknown`   | A side effect may have happened but Kaji cannot prove completion. |
+
+Kaji treats a thrown or rejected `execute` call as `unknown` by default —
+only application code knows whether its own side effect committed before an
+error surfaced. `knownFailure(cause)` is the one explicit exception: a
+capability throws it to assert that a specific failure is definitively
+known, so Kaji settles `failed` instead.
+
+```ts
+import { knownFailure } from "@irogane/kaji";
+
+execute: async (input, context) => {
+  try {
+    return await provider.charge(input);
+  } catch (cause) {
+    if (isDefinitelyDeclined(cause)) throw knownFailure(cause);
+    throw cause; // stays unknown: the side effect may have committed
+  }
+},
+```
+
+Kaji never infers this classification from an error's class, message, or
+status code — only application code that can prove no side effect
+committed may throw `knownFailure()`.
+
+## Next
+
+- [Idempotency and the execution store](/docs/concepts/idempotency)
+- [Approval](/docs/concepts/approval)
+- [Cancellation and timeout](/docs/concepts/cancellation)

@@ -1,105 +1,76 @@
 ---
 title: Architecture
-description: How the TypeScript runtime projects session state, calls a model provider, dispatches tools, and persists the resulting events.
+description: The one canonical execution path Kaji uses to run a capability, and the boundaries it does and does not own.
 ---
 
-import Diagram from "@/components/content/diagram.astro";
+## The execution path
 
-## Runtime loop
+`kaji.execute(capability, request)` is the only way a capability runs. There
+is no second path, so no caller can accidentally skip a safety boundary. For
+one request, the executor:
 
-<Diagram
-  id="architecture-runtime"
-  label="Your application supplies sessions, tools, and a provider to the agent runtime. The runtime projects state, calls the provider, executes bounded tools, and appends events to the event store."
-  rows={[
-    { text: "┌────────────────────────────────────────────────────┐", frameStage: 0 },
-    {
-      text: "│  your app                                          │",
-      frameStage: 0,
-      copyStage: 1,
-    },
-    {
-      text: "│  session manager   tool registry   model provider  │",
-      frameStage: 0,
-      copyStage: 2,
-    },
-    { text: "└────────────────────────┬───────────────────────────┘", frameStage: 0 },
-    { text: "                         ▼", connectorStage: 6 },
-    { text: "┌────────────────────────────────────────────────────┐", frameStage: 7 },
-    {
-      text: "│  agent runtime  (ReAct loop)                       │",
-      frameStage: 7,
-      copyStage: 8,
-    },
-    {
-      text: "│  1. project session state from event log           │",
-      frameStage: 7,
-      copyStage: 9,
-    },
-    {
-      text: "│  2. call LLM provider with history + tool specs    │",
-      frameStage: 7,
-      copyStage: 10,
-    },
-    {
-      text: "│  3. execute tool calls sequentially by default     │",
-      frameStage: 7,
-      copyStage: 11,
-    },
-    {
-      text: "│  4. loop until model response is final             │",
-      frameStage: 7,
-      copyStage: 12,
-    },
-    { text: "└───────────┬─────────────────────────────┬──────────┘", frameStage: 7 },
-    { text: "            │ events                      │ tool calls", connectorStage: 16 },
-    { text: "            ▼                             ▼", connectorStage: 17 },
-    {
-      text: "┌──────────────────────┐      ┌──────────────────────┐",
-      frameStage: 19,
-    },
-    {
-      text: "│  event store         │      │  tool handlers       │",
-      frameStage: 19,
-      copyStage: 20,
-    },
-    {
-      text: "│  app-owned memory    │      │  your functions      │",
-      frameStage: 19,
-      copyStage: 21,
-    },
-    {
-      text: "└──────────────────────┘      └──────────────────────┘",
-      frameStage: 19,
-    },
-  ]}
-/>
+1. Validates `principalId` and `idempotencyKey` are non-empty strings.
+2. Validates `input` against the capability's `input.parse()`.
+3. Claims the idempotency key in the execution store. An existing claim
+   returns the same recorded or in-flight outcome instead of running
+   `execute` again; a conflicting claim (same key, different input,
+   capability, or principal) settles `failed`.
+4. Calls `authorize({ principalId, input })`. A `false` result or a thrown
+   error settles `denied`.
+5. If `approval({ principalId, input })` returns `true`, calls the
+   configured `approve` handler. A missing handler, an invalid decision, a
+   rejected decision, or a handler error settles `rejected`.
+6. Calls `execute(input, context)` at most once.
+7. Records the outcome in the execution store and returns it.
 
-Tool calls execute sequentially by default. Only adjacent tools explicitly
-marked `parallel_safe` may overlap, and that overlap is bounded by the
-configured tool concurrency (four handlers by default).
+Cancellation is checked before each step that hasn't yet started a side
+effect; once `execute` has been called, Kaji can no longer prove the action
+didn't begin, so every failure path from that point settles `unknown` rather
+than an ordinary failure.
 
-## Modality boundary
+```text
+request
+  → validate input
+  → claim idempotency key
+  → authorize
+  → approve (if required)
+  → execute            (side effects may begin here)
+  → record outcome
+```
 
-The TypeScript alpha candidate implements the text path. Python provides WIP TTS
-adapters, and `kaji-serve` separately exposes a WIP Soniox STT WebSocket. This
-checkout does not compose those pieces into an end-to-end voice agent.
+## Boundaries
 
-<Diagram
-  id="architecture-modality"
-  label="The TypeScript alpha candidate accepts text input, runs the agent loop, and returns text output."
-  rows={[
-    { text: "┌───────────────────┐", frameStage: 0 },
-    { text: "│  text input       │", frameStage: 0, copyStage: 1 },
-    { text: "└─────────┬─────────┘", frameStage: 0 },
-    { text: "          │", connectorStage: 4 },
-    { text: "          ▼", connectorStage: 5 },
-    { text: "┌───────────────────┐", frameStage: 6 },
-    { text: "│  runtime loop     │", frameStage: 6, copyStage: 7 },
-    { text: "└─────────┬─────────┘", frameStage: 6 },
-    { text: "          │", connectorStage: 10 },
-    { text: "          ▼", connectorStage: 11 },
-    { text: "┌───────────────────┐", frameStage: 12 },
-    { text: "│  text output      │", frameStage: 12, copyStage: 13 },
-    { text: "└───────────────────┘", frameStage: 12 },
-  ]}
-/>
+Kaji owns the execution boundary; it does not own what's on either side of
+it.
+
+- **Capability code is ordinary application code.** `execute`,
+  `authorize`, and `approval` are functions your application supplies. Kaji
+  never contains business logic, and it never calls a capability's
+  functions outside `kaji.execute()`.
+- **The execution store is a narrow contract.** It claims idempotency keys
+  atomically and records terminal outcomes. It is not a general event log,
+  and v0 ships only `memoryStore()`, a process-local, non-durable
+  implementation. A production deployment supplies its own durable
+  `ExecutionStore`.
+- **Approval is a decision, not a UI.** Kaji calls the `approve` handler you
+  configure and enforces its decision; it does not implement a review queue,
+  notification system, or audit UI.
+- **Cancellation and timeout use native `AbortSignal`.** Kaji combines the
+  caller's signal with its own `timeoutMs` into one effective signal; it
+  does not invent a Kaji-specific cancellation token.
+
+## What Kaji does not do
+
+Kaji has no agent loop, model provider, tool registry, session or event
+store, CLI, or hosted control plane. An agent framework, MCP server, or
+direct application code decides what action to request; Kaji only governs
+how that one action is safely executed. See `docs/product.md` in the
+repository for the complete non-goal list.
+
+## Next
+
+- [Capabilities](/docs/concepts/capability)
+- [The executor](/docs/concepts/executor)
+- [Approval](/docs/concepts/approval)
+- [Idempotency and the execution store](/docs/concepts/idempotency)
+- [Cancellation and timeout](/docs/concepts/cancellation)

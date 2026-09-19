@@ -12,40 +12,24 @@ export interface NavigationSection {
 export const navigation: NavigationSection[] = [
   {
     items: [
-      { href: "/", label: "Overview" },
-      { href: "/docs", label: "Introduction" },
-      { href: "/docs/install", label: "Install" },
+      { href: "/introduction", label: "Introduction" },
       { href: "/docs/getting-started", label: "Getting Started" },
-      { href: "/docs/cli", label: "CLI" },
-      { href: "/docs/integrations", label: "Integrations" },
       { href: "/docs/architecture", label: "Architecture" },
     ],
   },
   {
     label: "Concepts",
     items: [
-      { href: "/docs/concepts/events", label: "Events" },
-      { href: "/docs/concepts/session-state", label: "Session State" },
-      { href: "/docs/concepts/runtime", label: "Runtime" },
-      { href: "/docs/concepts/lifecycle", label: "Lifecycle and Data Handling" },
-      { href: "/docs/concepts/tool-registry", label: "Tool Registry" },
-      { href: "/docs/concepts/event-bus", label: "Event Delivery" },
-      { href: "/docs/concepts/providers", label: "Providers" },
-    ],
-  },
-  {
-    label: "Integrations",
-    items: [
-      { href: "/docs/integrations/github", label: "GitHub", status: "wip" },
-      { href: "/docs/integrations/recovery-v1", label: "Recovery v1" },
+      { href: "/docs/concepts/capability", label: "Capabilities" },
+      { href: "/docs/concepts/executor", label: "The Executor" },
+      { href: "/docs/concepts/approval", label: "Approval" },
+      { href: "/docs/concepts/idempotency", label: "Idempotency & Execution Store" },
+      { href: "/docs/concepts/cancellation", label: "Cancellation & Timeout" },
     ],
   },
   {
     label: "Operations",
-    items: [
-      { href: "/docs/reference-service", label: "Reference Service", status: "wip" },
-      { href: "/docs/troubleshooting", label: "Troubleshooting" },
-    ],
+    items: [{ href: "/docs/troubleshooting", label: "Troubleshooting" }],
   },
 ];
 

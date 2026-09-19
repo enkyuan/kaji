@@ -141,6 +141,17 @@ const errorIconMarkup = XCircle.toSvg({
       });
     });
 
+    document.querySelectorAll<HTMLTableElement>(".doc-content table").forEach((table) => {
+      if (table.parentElement?.classList.contains("table-frame")) return;
+
+      const frame = document.createElement("div");
+      frame.className = "table-frame";
+      frame.tabIndex = 0;
+      frame.setAttribute("aria-label", "Scrollable table");
+      table.before(frame);
+      frame.append(table);
+    });
+
     document.querySelectorAll<HTMLPreElement>(".doc-content pre").forEach((pre) => {
       if (pre.parentElement?.classList.contains("code-frame")) return;
 
