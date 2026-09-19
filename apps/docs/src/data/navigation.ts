@@ -29,7 +29,7 @@ export const navigation: NavigationSection[] = [
   {
     label: "Guides",
     items: [
-      { href: "/docs/guides/authorization-and-approval", label: "Authorization & Approval" },
+      { href: "/docs/guides/authorization-and-approval", label: "Authorization" },
       { href: "/docs/guides/custom-store", label: "Custom Store" },
     ],
   },
