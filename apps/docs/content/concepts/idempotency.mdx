@@ -1,0 +1,95 @@
+---
+title: Idempotency
+description: A caller-supplied idempotency key identifies one intended operation; the execution store prevents that operation from running twice.
+---
+
+Every execution request carries a caller-supplied `idempotencyKey`. Kaji
+never generates one itself — the caller decides what "one intended
+operation" means, and Kaji makes sure that operation only ever runs once.
+
+## Claiming
+
+Before authorizing or executing anything, the executor claims the
+idempotency key in the configured `ExecutionStore`:
+
+- **No existing claim:** the executor proceeds to authorization.
+- **An existing claim with the same input fingerprint:** the caller (or a
+  concurrent duplicate) receives the same recorded or in-flight outcome —
+  `execute` does not run again.
+- **An existing claim with a different input, capability, or principal:**
+  the request settles `failed` as a conflict. One key can't represent two
+  different actions.
+
+Claiming happens before authorization deliberately: it's bookkeeping, not
+the side effect the authorization boundary protects. That way a denied or
+rejected request still occupies and settles its idempotency key, so a
+caller retrying a denied request with the same key sees the same denial
+instead of racing a fresh claim.
+
+## Store Contract
+
+```ts
+type ExecutionClaim = {
+  capability: string;
+  principalId: string;
+  idempotencyKey: string;
+  inputFingerprint: string;
+};
+
+type ClaimResult =
+  | { status: "claimed"; executionId: string }
+  | { status: "existing"; outcome: Promise<StoredExecution> }
+  | { status: "conflict"; executionId: string };
+
+type ExecutionStore = {
+  claim(claim: ExecutionClaim): Promise<ClaimResult>;
+  record(execution: StoredExecution): Promise<void>;
+};
+```
+
+`claim()` must be atomic enough that concurrent claims for the same
+identity produce exactly one `"claimed"` result — a check-then-create
+sequence can let two callers both believe they claimed first, which is
+exactly the race this contract exists to prevent. `record()` persists the
+terminal outcome once it's known.
+
+## `memoryStore()`
+
+```ts
+import { memoryStore } from "@irogane/kaji";
+
+const kaji = createKaji({ store: memoryStore() });
+```
+
+`memoryStore()` is a process-local, in-memory `ExecutionStore`. It honors
+the full claim/record contract, which makes it useful for local
+development, tests, and examples — but it has no external persistence and
+no durability guarantee. Nothing it records survives a process restart, and
+it does not coordinate across processes. Kaji v0 does not ship a database
+store, distributed lock, or recovery worker; a production deployment
+supplies its own durable `ExecutionStore` implementation.
+
+## Evidence
+
+Every settled execution carries minimal `ExecutionEvidence`:
+
+```ts
+type ExecutionEvidence = {
+  executionId: string;
+  capability: string;
+  principalId: string;
+  idempotencyKey: string;
+  inputFingerprint: string;
+};
+```
+
+This is deliberately not a general audit or event-sourcing record — it's
+only what's needed to identify an execution and detect conflicting
+idempotency key reuse. Kaji does not store arbitrary application events,
+conversation transcripts, or full payload history.
+
+## Further Reading
+
+- [Execution](/docs/concepts/executor) for the full outcome contract,
+  including `unknown`
+- [Timeout](/docs/concepts/cancellation)

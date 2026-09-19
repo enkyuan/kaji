@@ -1,0 +1,67 @@
+---
+title: Capabilities
+description: "`capability()` declares one named application action — its input contract, authorization and approval rules, and the function Kaji executes."
+---
+
+A capability declares one application action: its validated input contract,
+authorization and approval rules, and the ordinary application function
+Kaji will eventually execute. A capability never executes itself — only
+`kaji.execute()` calls its `execute` function.
+
+```ts
+import { capability } from "@irogane/kaji";
+import { z } from "zod";
+
+const refund = capability({
+  name: "payments.refund",
+  input: z.object({ paymentId: z.string(), amount: z.number() }),
+
+  authorize: async ({ principalId, input }) => {
+    return canRefund(principalId, input.paymentId);
+  },
+
+  approval: ({ input }) => input.amount >= 500,
+
+  execute: async (input, context) => {
+    return refundPayment({
+      ...input,
+      idempotencyKey: context.idempotencyKey,
+      signal: context.signal,
+    });
+  },
+});
+```
+
+## Fields
+
+- **`name`** is a stable, non-empty, application-defined identifier. It's
+  the only field the public `Capability` type exposes.
+- **`input`** needs only a `parse(input: unknown)` method that returns
+  validated input or throws. Kaji does not select or export a schema
+  library — Zod, Valibot, or a hand-written parser all satisfy this shape.
+- **`authorize`** receives validated input and returns whether the
+  principal may execute the capability. Returning `false` denies execution.
+  Throwing also denies it, before any side effect runs.
+- **`approval`** is optional. Returning `true` requires an approval decision
+  before `execute` runs; returning `false` (or omitting `approval`) does
+  not. The capability decides _when_ approval is required — the executor
+  enforces it. See [Approval](/docs/concepts/approval).
+- **`execute`** is ordinary application code. It receives validated input
+  and the per-execution `ExecutionContext` (`principalId`, `idempotencyKey`,
+  `signal`), and must use the supplied `AbortSignal` cooperatively when the
+  underlying operation supports it.
+
+## Non-Goals
+
+`capability()` only declares the action — it validates its own declaration
+(a non-empty `name`, an `authorize` function) at construction time, but
+never calls `authorize`, `approval`, or `execute` itself. Business logic
+stays in your application: Kaji must not embed domain-specific behavior
+such as a refund policy, and a capability's `execute` function must remain
+ordinary application code that Kaji only calls through its executor.
+
+## Further Reading
+
+- [Execution](/docs/concepts/executor) for how `kaji.execute()` calls
+  these hooks in order
+- [Approval](/docs/concepts/approval) for the approval boundary

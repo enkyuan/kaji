@@ -1,0 +1,64 @@
+---
+title: Approval
+description: A capability marks which requests need a decision; the executor enforces that no such request executes without one.
+---
+
+Some actions need a human (or another authority) to sign off before they
+run — a refund above a threshold, a destructive operation, a send to an
+external party. A capability's optional `approval` hook marks which
+requests need that decision; the executor enforces it.
+
+```ts
+const refund = capability({
+  name: "payments.refund",
+  input: RefundInput,
+  authorize: async ({ principalId, input }) => canRefund(principalId, input.paymentId),
+  approval: ({ input }) => input.amount >= 500,
+  execute: async (input, context) => refundPayment(input, context),
+});
+
+const kaji = createKaji({
+  store: memoryStore(),
+  approve: async (request) => requestHumanApproval(request),
+});
+```
+
+`approval` receives the validated input and principal, and returns a plain
+boolean — it decides _whether_ approval is required for this specific
+request, not how the decision is made. `approve`, configured once on the
+executor, decides _how_: it receives the capability name, principal ID,
+validated input, and idempotency key, and returns (or rejects with) an
+approval decision.
+
+```ts
+type ApprovalDecision = { approved: boolean; evidence?: unknown };
+
+type ApproveHandler = (request: {
+  capability: string;
+  principalId: string;
+  input: unknown;
+  idempotencyKey: string;
+}) => ApprovalDecision | Promise<ApprovalDecision>;
+```
+
+## Fail-Closed
+
+Approval is fail-closed: Kaji only proceeds past an `approval: true` request
+on an explicit `{ approved: true }`. Every other case settles `rejected`
+instead of running `execute`:
+
+- no `approve` handler was configured on the executor,
+- `approve` returned something other than `{ approved: boolean }`,
+- `approve` returned `{ approved: false }`,
+- `approve` threw or its promise rejected.
+
+The optional `evidence` on an approved decision may be retained alongside
+the execution record — use it to note what approval basis was used, such as
+an approver ID or ticket reference.
+
+## Further Reading
+
+- [Execution](/docs/concepts/executor) for the full result and status
+  contract
+- [Idempotency](/docs/concepts/idempotency) for how
+  a rejected request still settles its idempotency key

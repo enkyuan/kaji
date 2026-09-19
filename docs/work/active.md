@@ -1,8 +1,8 @@
 # Active work
 
-Goal: Freeze the smallest coherent TypeScript v0 product contract for Kaji.
-Reference: docs/product.md, docs/invariants.md, docs/api.md
-Owner: design authority
+Goal: Prove Kaji's execution invariants under failure, concurrency, cancellation, timeout, replay, and ambiguity.
+Reference: docs/invariants.md, docs/api.md
+Owner: verification
 State: DONE
 Started: 2026-09-15
-Exit condition: The product, invariant, and API documents define the execution boundary without SDK implementation or expanded product scope.
+Exit condition: every failure/duplicate/cancellation/timeout/settlement state in the frozen contract has a deterministic test asserting execute-call-count; production code is unchanged; all package checks pass; 20 repeated test runs show zero flakiness.

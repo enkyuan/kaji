@@ -1,61 +1,68 @@
 ---
 title: Kaji
-description: Kaji is an embeddable TypeScript agent runtime with event-sourced sessions, bounded tool execution, and pluggable model providers.
+description: Kaji is an embedded execution layer that safely turns agent-requested application actions into real state changes.
 ---
 
-Kaji is an embeddable TypeScript SDK for building agents. Compose a provider,
-tools, and policy in your application, then run the model/tool loop in process.
-The core needs no database, server, or control plane.
+Kaji standardizes the boundary between a requested action and its execution.
+An agent, MCP tool, or any automated caller proposes an action; your
+application defines what that action means; Kaji governs how it is safely
+executed.
 
-## Packages
+```text
+agent/framework/direct caller
+        ↓ proposes action
+      Kaji
+        ↓ governs execution
+application capability
+        ↓
+application/external system
+```
 
-| Package             | Path                  | What it is                                        |
-| ------------------- | --------------------- | ------------------------------------------------- |
-| `kaji`              | `kaji/packages/ts`    | TypeScript SDK and the primary path in these docs |
-| `kaji` (Python)     | `kaji/packages/py`    | Python SDK with shared event and tool contracts   |
-| `@irogane/kaji/cli` | `apps/cli`            | WIP cross-language scaffold and diagnostics       |
-| `kaji-serve`        | `kaji/packages/serve` | WIP REST and Soniox STT reference service         |
+Kaji is not an agent framework, workflow engine, tool framework, integration
+platform, or generic orchestration system. It has no model providers, no
+sessions or event log, no tool registry, and no CLI. It is a small library
+you call directly from a TypeScript backend.
 
-The primary TypeScript package is currently available only as the local
-`./irogane-kaji-0.3.0-alpha.1.tgz` release candidate. Python remains a
-source-checkout compatibility path while PyPI publication is deferred.
+## Capabilities
 
-## Start in process
+Given a **capability** — one named application action such as
+`payments.refund` — Kaji's executor validates input, identifies the caller,
+authorizes the request, obtains approval when required, calls the
+capability at most once, and records an explicit outcome:
 
-| If you want…                                  | Use                     |
-| --------------------------------------------- | ----------------------- |
-| In-process agent in a Node or Bun application | `kaji`                  |
-| Deterministic provider tests without API keys | `@irogane/kaji/testing` |
-| WIP REST or transcription over WebSocket      | `kaji-serve`            |
+- input validation before any authorization or side effect
+- a caller-supplied idempotency key so retries and duplicates don't re-run
+  the action
+- an optional human approval boundary for high-risk actions
+- cooperative cancellation and timeout through native `AbortSignal`
+- an honest `unknown` outcome when a side effect may have happened but
+  completion can't be proven
 
-Use the [reference service](/docs/reference-service) only to evaluate the WIP
-Python REST and Soniox STT service.
+## Non-Goals
 
-## Core model
+Kaji v0 is TypeScript-only and deliberately small. It does not provide LLM or
+model providers, agent loops or planning, workflow orchestration or retry
+scheduling, an MCP server or tool registry, sessions or event sourcing, a
+hosted control plane, or an identity/authorization system. Those stay with
+your agent framework and your application. See `docs/product.md` in the
+repository for the full non-goal list.
 
-`AgentBuilder` composes a model provider, risk-classified tools, and an optional
-policy. `AgentRuntime.turn()` records the user message, calls the provider,
-validates selected tools, and returns the final text with the events produced
-by that turn. The default store and committer are bounded, in-memory, and
-process-local.
+## Package
 
-Start with `MockProvider` from `@irogane/kaji/testing` to verify the local runtime.
-OpenAI is the recommended live-provider path for this TypeScript candidate.
-The `echo`, `gmail`, and `github` catalog entries are beta; the packaged GitHub
-TypeScript subpath remains experimental. Catalog tools are never activated
-implicitly.
+| Package         | Path          | What it is                        |
+| --------------- | ------------- | --------------------------------- |
+| `@irogane/kaji` | `packages/ts` | The TypeScript executor and types |
 
-## Python compatibility
+Python and Go exist in the repository as later scaffolds; they are not
+feature-complete ports and do not expand the v0 API.
 
-The TypeScript and Python SDKs validate the same v1 event schema. The Python
-package also contains WIP RAG, voice, and Redis surfaces. Those extras are not
-part of the TypeScript SDK or the documented TypeScript candidate path.
+## Further Reading
 
-See [integrations](/docs/integrations) for the exact catalog and stability
-boundaries.
-
-## Next
-
-- [Getting started](/docs/getting-started) -- run your first agent from the local alpha artifact
-- [Concepts](/docs/concepts/events) -- events, session state, tools, providers
-- [Architecture](/docs/architecture) -- the runtime loop
+- [Getting started](/docs/getting-started) — install Kaji and run your first
+  governed capability
+- [Capabilities](/docs/concepts/capability) — define one application action
+- [Execution](/docs/concepts/executor) — how `kaji.execute()` orders
+  validation, authorization, approval, and execution
+- [Idempotency](/docs/concepts/idempotency) — how
+  duplicates and retries are handled
+- [Architecture](/docs/architecture) — the execution path and its boundaries

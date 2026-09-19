@@ -1,0 +1,24 @@
+{
+  "name": "@irogane/kaji-example-refund",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Proof example: a payment refund action governed by @irogane/kaji.",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/app.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src",
+    "format": "oxfmt --write package.json tsconfig.json src",
+    "format:check": "oxfmt --check package.json tsconfig.json src"
+  },
+  "dependencies": {
+    "@irogane/kaji": "workspace:*",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.68.0",
+    "typescript": "^6.0.3"
+  }
+}

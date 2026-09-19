@@ -1,0 +1,30 @@
+name: TypeScript package
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun --filter=@irogane/kaji run format:check
+      - run: bun --filter=@irogane/kaji run lint
+      - run: bun --filter=@irogane/kaji run typecheck
+      - run: bun --filter=@irogane/kaji run test
+      - run: bun --filter=@irogane/kaji run build
+      - run: bun --filter=@irogane/kaji run package:check
+      - run: bun --filter=@irogane/kaji run package:smoke
+      - run: bun --filter=@irogane/kaji-example-refund run typecheck
+      - run: bun run example:refund

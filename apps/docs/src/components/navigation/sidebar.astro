@@ -1,5 +1,5 @@
 ---
-import KajiWordmark from "@/components/site/wordmark.astro";
+import KajiWordmark from "@/components/site/nav-wordmark.astro";
 import { navigation } from "@/data/navigation";
 import { Github } from "reicon-brands";
 
@@ -16,12 +16,7 @@ interface Props {
 
 const { activeHref: currentHref, headings = [] } = Astro.props;
 const tableOfContents = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
-const tocLabels: Record<string, string> = {
-  "install-the-published-package": "Install package",
-  "run-with-docker-compose": "Run with docker",
-  "when-to-use-the-reference-service": "When to use",
-};
-const tocLabel = (heading: Heading) => tocLabels[heading.slug] ?? heading.text;
+const tocLabel = (heading: Heading) => heading.text;
 const githubIcon = Github.toSvg({
   size: 12,
   className: "nav-github-icon",
@@ -81,7 +76,7 @@ const githubIcon = Github.toSvg({
   </div>
 
   <div class="nav-meta">
-    <span class="nav-version">v0.3.0-alpha.1</span>
+    <span class="nav-version">v0 (pre-release)</span>
     <span class="nav-dot" aria-hidden="true">·</span>
     <a
       class="nav-github"
