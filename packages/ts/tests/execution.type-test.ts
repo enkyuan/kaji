@@ -1,8 +1,8 @@
 import { expectTypeOf } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
-import { memoryStore } from "../src/memory-store.ts";
-import type { ExecutionResult } from "../src/execution-result.ts";
+import { memoryStore } from "../src/store/memory.ts";
+import type { ExecutionResult } from "../src/execution/result.ts";
 import type { InputParser } from "../src/schema.ts";
 
 type Refund = { paymentId: string; amount: number };

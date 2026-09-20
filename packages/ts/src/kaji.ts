@@ -1,9 +1,9 @@
-import type { ApproveHandler } from "./approval.ts";
+import type { ApproveHandler } from "./execution/approval.ts";
 import type { Capability } from "./capability.ts";
-import { executeCapability } from "./execute.ts";
-import type { ExecutionRequest } from "./execution-request.ts";
-import type { ExecutionResult } from "./execution-result.ts";
-import type { ExecutionStore } from "./execution-store.ts";
+import { executeCapability } from "./execution/execute.ts";
+import type { ExecutionRequest } from "./execution/request.ts";
+import type { ExecutionResult } from "./execution/result.ts";
+import type { ExecutionStore } from "./store/store.ts";
 
 /** Stable application configuration for the executor, per docs/api.md. */
 export type KajiOptions = {

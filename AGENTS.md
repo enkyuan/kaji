@@ -80,6 +80,62 @@ Avoid hidden global state, deep inheritance, generic framework layers, speculati
 
 A function should usually fit on one screen. A file should usually stay within 150–300 LOC and must justify exceeding 400 LOC.
 
+## Source organization
+
+The filesystem should communicate product architecture. A contributor should locate behavior from filenames before reading implementation.
+
+### Root source files
+
+Keep primary public concepts at `packages/ts/src/` while their implementation remains small:
+
+- `capability.ts`
+- `schema.ts`
+- `kaji.ts`
+- `errors.ts`
+- `index.ts`
+
+`index.ts` is the only package barrel and contains no implementation.
+
+### Responsibility directories
+
+Create a directory when one concrete responsibility owns multiple cooperating files and grouping makes ownership clearer. Keep a public concept at `src/` root while it remains small; a directory should usually own roughly three or more cooperating files before it exists.
+
+Current responsibilities:
+
+- `execution/` — one capability invocation through Kaji
+- `store/` — execution claim, settlement, replay, and storage
+
+Do not organize source around generic architectural labels such as `core/`, `internal/`, `services/`, `types/`, `utils/`, `helpers/`, `common/`, or `shared/`.
+
+### Filenames
+
+Inside a responsibility directory, do not repeat the directory name in the filename. Prefer `execution/context.ts`, `execution/result.ts`, and `store/memory.ts`; avoid `execution/execution-context.ts` and `store/memory-store.ts`. Filenames should identify the concrete concept they own.
+
+### Types
+
+Types live beside the concept that owns them. Do not create a general `types/` directory. Execution result types belong in `execution/result.ts`; store contract types belong in `store/store.ts`.
+
+### Barrels
+
+Do not create nested barrel files by default. Avoid `execution/index.ts` and `store/index.ts`; internal imports name the owning file explicitly. `src/index.ts` alone defines the package's public API.
+
+### Dependency direction within a package
+
+Source placement implies ownership and dependency direction.
+
+- schema must not depend on execution or store
+- capability must not depend on store or the execution orchestrator
+- store must not depend on execution orchestration
+- execution may consume capability, errors, schema, and the store contract
+- kaji constructs and configures execution but does not duplicate its pipeline
+- index contains exports only
+
+Circular dependencies are prohibited.
+
+### Tests
+
+Production source is grouped by implementation responsibility. Tests are grouped by observable behavior and invariant. Do not mirror the entire source filesystem mechanically in tests.
+
 ## Naming and filesystem semantics
 
 Names are architecture.
@@ -90,8 +146,8 @@ Use filenames that describe the owned concept:
 
 ```text
 capability.ts
-execute.ts
-store.ts
+execution/result.ts
+store/memory.ts
 errors.ts
 approval.ts
 idempotency.ts

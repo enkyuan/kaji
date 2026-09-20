@@ -1,4 +1,4 @@
-import type { ExecutionResult } from "./execution-result.ts";
+import type { ExecutionResult } from "../execution/result.ts";
 
 /**
  * The material identity of one intended operation: which capability, which

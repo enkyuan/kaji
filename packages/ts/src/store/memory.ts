@@ -1,9 +1,4 @@
-import type {
-  ClaimResult,
-  ExecutionClaim,
-  ExecutionStore,
-  StoredExecution,
-} from "./execution-store.ts";
+import type { ClaimResult, ExecutionClaim, ExecutionStore, StoredExecution } from "./store.ts";
 
 /**
  * One claimed execution's in-memory state. `settle` resolves `outcome` for

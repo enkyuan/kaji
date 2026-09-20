@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
-import { memoryStore } from "../src/memory-store.ts";
+import { memoryStore } from "../src/store/memory.ts";
 import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
 
 describe("concurrent identical requests", () => {

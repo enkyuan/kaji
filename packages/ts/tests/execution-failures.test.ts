@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
 import { knownFailure } from "../src/errors.ts";
-import { memoryStore } from "../src/memory-store.ts";
-import type { ExecutionStore } from "../src/execution-store.ts";
+import { memoryStore } from "../src/store/memory.ts";
+import type { ExecutionStore } from "../src/store/store.ts";
 import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
 
 describe("invalid request metadata", () => {
