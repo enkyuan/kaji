@@ -513,9 +513,9 @@ describe("async Standard Schema validation", () => {
         return store.record(execution);
       },
     };
-    const authorize = vi.fn(() => true);
-    const approval = vi.fn(() => true);
-    const execute = vi.fn();
+    const _authorize = vi.fn(() => true);
+    const _approval = vi.fn(() => true);
+    const _execute = vi.fn();
     const deferred = deferredSchema({ paymentId: "pay_1", amount: 10 });
 
     const refund = capability({
@@ -524,7 +524,7 @@ describe("async Standard Schema validation", () => {
         "~standard": {
           version: 1 as const,
           vendor: "test",
-          validate: (value: unknown) => {
+          validate: (_value: unknown) => {
             calls.push("validate");
             return deferred.validate();
           },
