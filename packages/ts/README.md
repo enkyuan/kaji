@@ -26,10 +26,9 @@ your process — no server, database, or control plane.
 
 ## Install
 
-Kaji v0 is not yet published to npm. Publishing an install command now
-would resolve to the previously published agent SDK under this name
-(0.2.0-beta.11), so the command is enabled only when the v0 artifact
-is published.
+```bash
+npm install @irogane/kaji
+```
 
 ## Minimal example
 
