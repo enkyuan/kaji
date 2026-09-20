@@ -116,9 +116,18 @@ jobs:
       # npm publish's spec handling (verified in npm 11.19.0 source), so the
       # staged bytes are exactly the bytes the gate approved. OIDC
       # authenticates via the npm-release environment trust; no token.
-      # This is the final action: nothing here can make the package public.
+      # npm's oidc() helper fails silently when the exchange is rejected
+      # (surface symptom: ENEEDAUTH), so assert the OIDC env up front and
+      # log verbosely here to capture npm's rejection reason.
       - name: Stage package (publication deferred to human approval)
-        run: npm stage publish "$STAGED_TARBALL" --tag "$CHANNEL" --access public --provenance
+        env:
+          npm_config_loglevel: verbose
+        run: |
+          if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+            echo "::error::ACTIONS_ID_TOKEN_* missing: the job lacks id-token: write, so OIDC staging cannot authenticate"
+            exit 1
+          fi
+          npm stage publish "$STAGED_TARBALL" --tag "$CHANNEL" --access public --provenance
 
       - name: Report staged release
         if: always()
