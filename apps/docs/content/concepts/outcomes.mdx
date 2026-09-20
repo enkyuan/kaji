@@ -1,0 +1,119 @@
+---
+title: Outcomes
+description: Handle Kaji's six public result statuses without unsafe retries.
+---
+
+`kaji.execute()` resolves governed outcomes as `ExecutionResult` values.
+
+```ts
+export type ExecutionResult<Result> =
+  | {
+      readonly status: "succeeded";
+      readonly result: Result;
+      readonly evidence: ExecutionEvidence;
+    }
+  | {
+      readonly status: "denied" | "rejected" | "failed" | "cancelled";
+      readonly error: unknown;
+      readonly evidence: ExecutionEvidence;
+    }
+  | {
+      readonly status: "unknown";
+      readonly error: unknown;
+      readonly evidence: ExecutionEvidence;
+    };
+```
+
+`kaji.execute()` rejects instead of resolving to one of these six statuses when it cannot establish the execution boundary at all — invalid `principalId` or `idempotencyKey`, invalid capability input (`InvalidInputError`), or a `store.claim()` failure. No claim exists yet in these cases, so there is no result to classify.
+
+## `succeeded`
+
+The capability returned a result, and the store recorded that result.
+
+An identical retry returns the recorded result. It does not call the capability again.
+
+## `denied`
+
+Authorization returned `false` or threw. Kaji did not call the capability.
+
+The application owns the authorization policy and the meaning of the denial.
+
+## `rejected`
+
+The request required approval, but Kaji did not receive a valid approval.
+
+Missing handlers, invalid decisions, explicit rejection, and handler errors all produce this status. Kaji did not call the capability.
+
+## `failed`
+
+Kaji has a definitive failure for the governed request.
+
+Current cases include:
+
+- the same execution identity was reused with different validated input
+- capability code threw `knownFailure(cause)` after it proved that no side effect committed
+
+`failed` is not a synonym for `knownFailure()`. The public status also covers finalized failures outside capability execution.
+
+`failed` does not state whether an error is retryable, permanent, or part of a specific error category. Application policy must make those decisions.
+
+## `cancelled`
+
+Cancellation stopped the request before capability execution began.
+
+When cancellation happens before the store claim, the evidence contains no execution ID or input fingerprint. No execution record exists yet.
+
+When cancellation happens after the claim but before execution, Kaji records `cancelled` when the store remains available.
+
+## `unknown`
+
+Kaji could not confirm the intended final result.
+
+A normal thrown or rejected capability execution produces `unknown`. The side effect can commit before the error reaches Kaji.
+
+A timeout or cancellation after capability execution begins also preserves ambiguity when execution rejects.
+
+A failure from `store.record()` converts the intended terminal result to `unknown`. In this case, Kaji could not confirm settlement.
+
+Do not blindly retry `unknown`. Reconcile with the application or external provider first.
+
+## `knownFailure()`
+
+Use `knownFailure(cause)` only inside capability execution and only when application code knows that no side effect committed.
+
+```ts
+execute: async (input, context) => {
+  try {
+    return await provider.refund(input, {
+      idempotencyKey: context.idempotencyKey,
+      signal: context.signal,
+    });
+  } catch (cause) {
+    if (providerRejectedBeforeCommit(cause)) throw knownFailure(cause);
+    throw cause;
+  }
+},
+```
+
+Kaji never infers known failure from an error class, message, or status code.
+
+## Handle every status
+
+```ts
+switch (outcome.status) {
+  case "succeeded":
+    return showReceipt(outcome.result);
+  case "denied":
+    return showAuthorizationError(outcome.error);
+  case "rejected":
+    return showApprovalError(outcome.error);
+  case "failed":
+    return handleDefinitiveFailure(outcome.error);
+  case "cancelled":
+    return showCancellation(outcome.error);
+  case "unknown":
+    return reconcile(outcome.evidence);
+}
+```
+
+Do not collapse `unknown` into `failed`. The distinction prevents an unsafe retry after an ambiguous side effect.

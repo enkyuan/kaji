@@ -19,7 +19,12 @@ const zodCommands = {
 } as const;
 ---
 
-<Base title="Kaji" description="Kaji is the execution layer for agents." activeHref="/" shell="standalone">
+<Base
+  title="Kaji"
+  description="Kaji governs application actions requested by agents, automations, and other callers."
+  activeHref="/"
+  shell="standalone"
+>
   <script is:inline data-astro-rerun>
     // Entry-page intro, standalone-shell only (the docs shell has its own
     // first-visit motion gate in base.astro; the two are intentionally not
@@ -73,7 +78,7 @@ const zodCommands = {
             <span class="entry-definition-gloss">鍛冶</span> — blacksmithing; forging: to heat and
             hammer metal into a tool.
           </li>
-          <li>The execution layer for agents.</li>
+          <li>An embedded execution layer for application actions.</li>
         </ol>
       </div>
     </div>

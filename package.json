@@ -12,7 +12,8 @@
     "format": "bun --filter='*' run format",
     "format:check": "bun --filter='*' run format:check",
     "test": "bun --filter=@irogane/kaji run test",
-    "package:check": "bun --filter=@irogane/kaji run package:check",
+    "readme:check": "cmp -s README.md packages/ts/README.md || (echo 'README drift: copy README.md to packages/ts/README.md' >&2; exit 1)",
+    "package:check": "bun run readme:check && bun --filter=@irogane/kaji run package:check",
     "package:smoke": "bun --filter=@irogane/kaji run package:smoke",
     "example:refund": "bun --filter=@irogane/kaji-example-refund run start"
   }

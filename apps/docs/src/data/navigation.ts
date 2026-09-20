@@ -11,6 +11,7 @@ export interface NavigationSection {
 
 export const navigation: NavigationSection[] = [
   {
+    label: "Start",
     items: [
       { href: "/introduction", label: "Introduction" },
       { href: "/docs/getting-started", label: "Getting Started" },
@@ -18,13 +19,23 @@ export const navigation: NavigationSection[] = [
     ],
   },
   {
-    label: "Concepts",
+    label: "Core concepts",
     items: [
       { href: "/docs/concepts/capability", label: "Capabilities" },
+      { href: "/docs/concepts/authorization", label: "Authorization" },
       { href: "/docs/concepts/executor", label: "Execution" },
       { href: "/docs/concepts/approval", label: "Approval" },
+      { href: "/docs/concepts/outcomes", label: "Outcomes" },
       { href: "/docs/concepts/idempotency", label: "Idempotency" },
-      { href: "/docs/concepts/cancellation", label: "Timeout" },
+      { href: "/docs/concepts/stores", label: "Stores" },
+      { href: "/docs/concepts/cancellation", label: "Timeout and Cancellation" },
+    ],
+  },
+  {
+    label: "Reference",
+    items: [
+      { href: "/docs/reference/api", label: "API Reference" },
+      { href: "/docs/reference/refund-example", label: "Refund Example" },
     ],
   },
   {

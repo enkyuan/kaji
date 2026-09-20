@@ -3,7 +3,7 @@
  * JSON-shaped data — and cannot be fingerprinted deterministically.
  * Capability input is schema-validated application data, so this is the
  * natural boundary: it excludes functions, symbols, and other values a
- * schema parser would not normally produce.
+ * schema would not normally produce.
  */
 export class UnfingerprintableValueError extends Error {
   constructor(reason: string) {

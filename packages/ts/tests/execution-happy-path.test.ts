@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
 import { memoryStore } from "../src/store/memory.ts";
-import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
+import { baseRequest, refundSchema, type Refund } from "./execution-fixtures.ts";
 
 describe("kaji.execute happy path", () => {
   it("runs a valid request successfully", async () => {
     const kaji = createKaji({ store: memoryStore() });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute: async (input) => ({ refunded: input.amount }),
     });
@@ -31,7 +31,7 @@ describe("kaji.execute happy path", () => {
     const seen: Refund[] = [];
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: ({ input }) => {
         seen.push(input);
         return true;
@@ -60,7 +60,7 @@ describe("kaji.execute happy path", () => {
     const authorize = vi.fn(() => true);
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize,
       execute: async (input) => input,
     });
@@ -79,7 +79,7 @@ describe("kaji.execute happy path", () => {
     const approve = vi.fn(async () => ({ approved: true }));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: ({ input }) => input.amount >= 5,
       execute: async (input) => input,
@@ -97,7 +97,7 @@ describe("kaji.execute happy path", () => {
     const claimSpy = vi.spyOn(store, "claim");
     const authorize = vi.fn(() => true);
     const execute = vi.fn(async (input: Refund) => input);
-    const refund = capability({ name: "payments.refund", input: refundParser, authorize, execute });
+    const refund = capability({ name: "payments.refund", input: refundSchema, authorize, execute });
     const kaji = createKaji({ store });
 
     await kaji.execute(refund, baseRequest());
@@ -109,7 +109,7 @@ describe("kaji.execute happy path", () => {
   it("returns replayed: false is not part of the frozen result; fresh results carry no replay flag", async () => {
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute: async (input) => input,
     });
@@ -124,7 +124,7 @@ describe("kaji.execute happy path", () => {
     let seenContext: unknown;
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute: async (input, context) => {
         seenContext = context;
@@ -147,7 +147,7 @@ describe("kaji.execute happy path", () => {
   it("preserves the capability's result type", async () => {
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute: async (input) => ({ refunded: input.amount, at: "now" }),
     });

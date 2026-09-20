@@ -1,117 +1,82 @@
 ---
 title: Execution
-description: "`createKaji()` builds the one canonical entry point that validates, authorizes, approves, executes, and records every governed capability call."
+description: Follow the one governed path from request to recorded result.
 ---
 
-`createKaji()` creates the Kaji executor — the one entry point that runs a
-capability safely.
+Create one executor with stable application configuration:
 
 ```ts
-import { createKaji, memoryStore } from "@irogane/kaji";
-
 const kaji = createKaji({
-  store: memoryStore(),
-  approve: async (request) => requestHumanApproval(request),
-  timeoutMs: 30_000,
-});
-
-const result = await kaji.execute(refund, {
-  input: { paymentId: "pay_123", amount: 750 },
-  principalId: user.id,
-  idempotencyKey: request.id,
-  signal: request.signal,
+  store,
+  approve,
+  timeoutMs: 15_000,
 });
 ```
 
-## Options
+Then use `kaji.execute()` for every governed capability call.
 
-- **`store`** is the required `ExecutionStore` the executor uses to claim
-  idempotency keys and record outcomes. See
-  [Idempotency](/docs/concepts/idempotency).
-- **`approve`** is required only if any capability can set `approval` to
-  `true`. It receives the capability name, principal ID, validated input,
-  and idempotency key, and returns (or throws before returning) an approval
-  decision. See [Approval](/docs/concepts/approval).
-- **`timeoutMs`** bounds how long Kaji waits for an execution. It does not
-  roll back a side effect or prove that a remote operation didn't occur —
-  Kaji simply aborts its execution signal when the timeout elapses. See
-  [Timeout](/docs/concepts/cancellation).
-
-## Request & Context
+## Request
 
 ```ts
-type ExecutionRequest = {
-  input: unknown;
-  principalId: string;
-  idempotencyKey: string;
-  signal?: AbortSignal;
-};
-
-type ExecutionContext = {
-  principalId: string;
-  idempotencyKey: string;
-  signal: AbortSignal;
+export type ExecutionRequest = {
+  readonly input: unknown;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly signal?: AbortSignal;
 };
 ```
 
-`principalId` and `idempotencyKey` must be non-empty strings, and the caller
-always supplies both — Kaji never infers either from process state. The
-context signal a capability's `execute` receives combines the caller's
-signal with Kaji's optional `timeoutMs`, using native `AbortSignal`
-semantics.
+The caller supplies all request fields. `principalId` and `idempotencyKey` must be non-empty strings.
 
-## Results
+Invalid metadata or invalid capability input rejects before Kaji creates a store claim. Invalid input surfaces as `InvalidInputError`, carrying the schema's Standard Schema issues. Kaji does not call authorization, approval, or capability execution in this case.
 
-`execute()` resolves with an explicit result for every governed execution.
-It does not throw for expected outcomes — only when Kaji cannot establish
-the execution boundary at all, such as an invalid executor configuration or
-an unrecoverable store error before any execution record exists.
+## Order
 
-```ts
-type ExecutionResult<Result> =
-  | { status: "succeeded"; result: Result; evidence: ExecutionEvidence }
-  | {
-      status: "denied" | "rejected" | "failed" | "cancelled";
-      error: unknown;
-      evidence: ExecutionEvidence;
-    }
-  | { status: "unknown"; error: unknown; evidence: ExecutionEvidence };
-```
+For a new valid claim, Kaji runs these steps:
 
-| Status      | Meaning                                                           |
-| ----------- | ----------------------------------------------------------------- |
-| `succeeded` | `execute` returned successfully.                                  |
-| `denied`    | Authorization did not allow the action.                           |
-| `rejected`  | Required approval was unavailable or not granted.                 |
-| `failed`    | Kaji knows the action did not start or did not succeed.           |
-| `cancelled` | Cancellation prevented side-effect execution.                     |
-| `unknown`   | A side effect may have happened but Kaji cannot prove completion. |
+1. Validate capability input.
+2. Claim the execution identity.
+3. Check authorization.
+4. Request approval when required.
+5. Call the capability `execute` function.
+6. Record the result.
 
-Kaji treats a thrown or rejected `execute` call as `unknown` by default —
-only application code knows whether its own side effect committed before an
-error surfaced. `knownFailure(cause)` is the one explicit exception: a
-capability throws it to assert that a specific failure is definitively
-known, so Kaji settles `failed` instead.
+An existing identical claim returns its stored or pending result. Kaji does not call the capability again.
+
+A claim with the same identity and different validated input returns `status: "failed"` as an idempotency conflict.
+
+## Context
+
+Capability execution receives this context:
 
 ```ts
-import { knownFailure } from "@irogane/kaji";
-
-execute: async (input, context) => {
-  try {
-    return await provider.charge(input);
-  } catch (cause) {
-    if (isDefinitelyDeclined(cause)) throw knownFailure(cause);
-    throw cause; // stays unknown: the side effect may have committed
-  }
-},
+export type ExecutionContext = {
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly signal: AbortSignal;
+};
 ```
 
-Kaji never infers this classification from an error's class, message, or
-status code — only application code that can prove no side effect
-committed may throw `knownFailure()`.
+The signal combines the caller signal with the optional Kaji timeout. `timeoutMs` aborts this signal but does not forcibly terminate `execute()`.
 
-## Further Reading
+Kaji awaits `execute()` until it settles. The capability or downstream API must observe the signal for cancellation to interrupt work.
 
-- [Idempotency](/docs/concepts/idempotency)
-- [Approval](/docs/concepts/approval)
-- [Timeout](/docs/concepts/cancellation)
+Pass the idempotency key to an external provider when the provider supports idempotency. Kaji cannot make an external provider idempotent by itself.
+
+## Return and rejection behavior
+
+After Kaji establishes an execution claim, expected outcomes resolve as `ExecutionResult` values.
+
+Kaji can reject before the claim exists. Examples include invalid request metadata, invalid capability input, and a store claim failure.
+
+After capability execution begins, a normal thrown error resolves as `status: "unknown"`. Throw `knownFailure(cause)` only when no side effect committed.
+
+Read [Outcomes](/docs/concepts/outcomes) for every result status.
+
+## Store settlement
+
+Kaji records each terminal result through `store.record()`.
+
+When this record call fails, Kaji returns `status: "unknown"`. The returned status no longer confirms that the intended terminal result was stored.
+
+A repeated request depends on store behavior. Production safety therefore depends on the configured `ExecutionStore`.

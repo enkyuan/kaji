@@ -1,68 +1,49 @@
 ---
-title: Kaji
-description: Kaji is an embedded execution layer that safely turns agent-requested application actions into real state changes.
+title: Documentation
+description: Learn how Kaji governs application actions requested by agents and other callers.
 ---
 
-Kaji standardizes the boundary between a requested action and its execution.
-An agent, MCP tool, or any automated caller proposes an action; your
-application defines what that action means; Kaji governs how it is safely
-executed.
+Kaji is a TypeScript library that runs inside your application. It puts one execution boundary in front of application actions that can create side effects.
 
-```text
-agent/framework/direct caller
-        ↓ proposes action
-      Kaji
-        ↓ governs execution
-application capability
-        ↓
-application/external system
-```
+Use Kaji when an agent, automation, or other caller can trigger functions such as `refundPayment()` or `cancelBooking()`.
 
-Kaji is not an agent framework, workflow engine, tool framework, integration
-platform, or generic orchestration system. It has no model providers, no
-sessions or event log, no tool registry, and no CLI. It is a small library
-you call directly from a TypeScript backend.
+## Start here
 
-## Capabilities
+1. [Install Kaji and run a capability](/docs/getting-started).
+2. [Understand the execution boundary](/docs/architecture).
+3. [Review the six result statuses](/docs/concepts/outcomes).
+4. [Choose an execution store](/docs/concepts/stores).
+5. [Check the public API](/docs/reference/api).
 
-Given a **capability** — one named application action such as
-`payments.refund` — Kaji's executor validates input, identifies the caller,
-authorizes the request, obtains approval when required, calls the
-capability at most once, and records an explicit outcome:
+## What Kaji governs
 
-- input validation before any authorization or side effect
-- a caller-supplied idempotency key so retries and duplicates don't re-run
-  the action
-- an optional human approval boundary for high-risk actions
-- cooperative cancellation and timeout through native `AbortSignal`
-- an honest `unknown` outcome when a side effect may have happened but
-  completion can't be proven
+Kaji validates input, claims an idempotency key, checks authorization, requests approval when required, executes the capability, and records the result.
 
-## Non-Goals
+Kaji applies this order every time. Callers cannot select a different order through the public API.
 
-Kaji v0 is TypeScript-only and deliberately small. It does not provide LLM or
-model providers, agent loops or planning, workflow orchestration or retry
-scheduling, an MCP server or tool registry, sessions or event sourcing, a
-hosted control plane, or an identity/authorization system. Those stay with
-your agent framework and your application. See `docs/product.md` in the
-repository for the full non-goal list.
+## What your application owns
 
-## Package
+Your application defines each capability. It also owns caller identity, authorization policy, approval policy, the production store, provider calls, and recovery for `unknown` results.
 
-| Package         | Path          | What it is                        |
-| --------------- | ------------- | --------------------------------- |
-| `@irogane/kaji` | `packages/ts` | The TypeScript executor and types |
+Kaji does not replace these systems. It gives them one consistent execution boundary.
 
-Python and Go exist in the repository as later scaffolds; they are not
-feature-complete ports and do not expand the v0 API.
+## Result model
 
-## Further Reading
+Every governed request returns one of six statuses:
 
-- [Getting started](/docs/getting-started) — install Kaji and run your first
-  governed capability
-- [Capabilities](/docs/concepts/capability) — define one application action
-- [Execution](/docs/concepts/executor) — how `kaji.execute()` orders
-  validation, authorization, approval, and execution
-- [Idempotency](/docs/concepts/idempotency) — how
-  duplicates and retries are handled
-- [Architecture](/docs/architecture) — the execution path and its boundaries
+- `succeeded`
+- `denied`
+- `rejected`
+- `failed`
+- `cancelled`
+- `unknown`
+
+Read [Outcomes](/docs/concepts/outcomes) before you add retries or recovery logic.
+
+## Guarantees depend on the store
+
+The configured `ExecutionStore` coordinates claims and recorded outcomes.
+
+`memoryStore()` works only inside one process. It has no persistence, cross-process coordination, or restart durability.
+
+Kaji does not claim globally distributed exactly-once execution. Your store and external provider determine the full guarantee.

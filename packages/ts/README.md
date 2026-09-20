@@ -1,158 +1,187 @@
 # Kaji
 
-Kaji is an embedded execution layer for safely turning agent-requested
-application actions into real state changes.
+Kaji is an embedded execution layer for application actions requested by agents, automations, and other callers.
 
-```text
-agent / framework / direct caller
-            ↓
-           Kaji
-            ↓
-   application capability
-            ↓
- application / external system
-```
+Your application already has functions such as `refundPayment()` or `cancelBooking()`. Kaji puts one governed boundary in front of those functions.
 
-Your application already has functions like `refundPayment()` or
-`cancelBooking()`. When something outside your direct control — an
-agent, an automation, an MCP tool call — can trigger one of those
-functions, it needs caller identity, input validation, authorization,
-approval, and protection against duplicate or ambiguous side effects.
-Kaji standardizes that boundary once, inside your application, instead
-of once per caller.
+That boundary validates input, claims the execution identity, checks authorization, requests approval when required, executes the action, and records the result.
 
-Kaji is a TypeScript library with zero runtime dependencies. It runs in
-your process — no server, database, or control plane.
+Kaji is a TypeScript library with zero runtime dependencies. It runs inside your application. It does not require a Kaji server, database, or control plane.
+
+Invalid capability input rejects with an `InvalidInputError` before Kaji claims, authorizes, or executes anything. Its `issues` property carries the schema's [Standard Schema](https://standardschema.dev) issues verbatim.
 
 ## Install
 
 ```bash
-npm install @irogane/kaji
+npm install @irogane/kaji zod
 ```
+
+Kaji accepts any [Standard Schema](https://standardschema.dev) V1 schema as `input`. This example uses Zod, but Valibot, ArkType, and hand-written schemas work the same way.
 
 ## Minimal example
 
 ```ts
-import { capability, createKaji, knownFailure, memoryStore } from "@irogane/kaji";
+import { capability, createKaji, memoryStore } from "@irogane/kaji";
 import { z } from "zod";
 
-const RefundInput = z.object({
-  paymentId: z.string().min(1),
-  amount: z.number().positive(),
-});
+const refunds = new Map<string, number>();
 
-const refund = capability({
+const refundPayment = capability({
   name: "payments.refund",
-  input: RefundInput,
-
-  authorize: async ({ principalId, input }) => {
-    return canRefund(principalId, input.paymentId);
-  },
-
-  approval: ({ input }) => input.amount >= 500,
-
-  execute: async (input, context) => {
-    try {
-      return await payments.refund({
-        ...input,
-        idempotencyKey: context.idempotencyKey,
-        signal: context.signal,
-      });
-    } catch (cause) {
-      if (isDefinitiveProviderRejection(cause)) throw knownFailure(cause);
-      throw cause; // anything else stays unknown: the side effect may have committed
-    }
+  input: z.object({
+    paymentId: z.string().min(1),
+    amount: z.number().positive(),
+  }),
+  authorize: ({ principalId }) => principalId.startsWith("user_"),
+  execute: async ({ paymentId, amount }, context) => {
+    refunds.set(paymentId, amount);
+    return { refundId: `refund:${context.idempotencyKey}`, amount };
   },
 });
-
-const kaji = createKaji({
-  store: memoryStore(),
-  approve: async () => ({ approved: true }),
-});
-
-const result = await kaji.execute(refund, {
-  input: { paymentId: "pay_123", amount: 750 },
-  principalId: "user_123",
-  idempotencyKey: "refund_req_123",
-});
-```
-
-`canRefund()` and `payments.refund()` are your own application code.
-Kaji never sees your domain logic — it only governs when `execute` runs.
-
-## Why Kaji
-
-- **Explicit identity.** Every execution requires a caller-supplied
-  `principalId`. Kaji never infers one from process state.
-- **Validation before anything else.** Invalid input never reaches
-  `authorize`, `approval`, or `execute`.
-- **Duplicate suppression.** A caller-supplied `idempotencyKey` claims
-  one intended operation; a repeated request with the same key replays
-  the recorded result instead of running `execute` again.
-- **Fail-closed approval.** A capability declares when approval is
-  required; the host application supplies how a decision is obtained;
-  a missing, rejected, or failed decision prevents execution.
-- **Explicit failure semantics.** `succeeded`, `failed`, and `unknown`
-  are distinct outcomes — see below.
-
-## Execution outcomes
-
-`kaji.execute()` resolves with an explicit `status` for every governed
-execution; it does not throw for expected outcomes.
-
-```text
-execute() resolves
-  → succeeded
-
-execute() throws knownFailure(cause)
-  → failed
-
-execute() throws or rejects with anything else
-  → unknown
-```
-
-`unknown` means the side effect may have committed, but Kaji cannot
-prove the final result — a thrown error, a timeout, or a cancellation
-after `execute()` has started all settle `unknown`, never `failed`.
-Kaji never infers a known failure from an error's class, message, or
-status code; only application code that can prove no side effect
-committed may throw `knownFailure()`. See the
-[execution outcomes guide](https://kaji.build/docs/concepts/executor)
-for the full model.
-
-## memoryStore()
-
-`createKaji()` needs an `ExecutionStore`. `memoryStore()` is the
-built-in reference implementation:
-
-```ts
-import { memoryStore } from "@irogane/kaji";
 
 const kaji = createKaji({ store: memoryStore() });
+
+const outcome = await kaji.execute(refundPayment, {
+  input: { paymentId: "pay_123", amount: 50 },
+  principalId: "user_123",
+  idempotencyKey: "refund_pay_123_v1",
+});
+
+if (outcome.status === "succeeded") {
+  console.log(outcome.result.refundId);
+}
 ```
 
-`memoryStore()` is process-local and in-memory. It is useful for local
-development, tests, and examples — it is not durable and does not
-coordinate across processes or instances. A production deployment needs
-an `ExecutionStore` backed by durable, atomic storage; see
-[architecture](https://kaji.build/docs/architecture).
+`memoryStore()` is process-local and non-durable. Use it for development, tests, and examples. Production guarantees depend on the `ExecutionStore` that you provide.
+
+## Execution lifecycle
+
+`kaji.execute()` uses one fixed order:
+
+1. Validate the request input.
+2. Claim the capability, principal ID, and caller-supplied idempotency key.
+3. Check application authorization.
+4. Request application approval when the capability requires it.
+5. Call the capability `execute` function at most once for that stored claim.
+6. Record the terminal result.
+
+A repeated request with the same identity and input returns the stored result. Kaji does not call the capability again.
+
+The execution identity contains the capability name, `principalId`, and `idempotencyKey`. Reuse with different validated input returns `status: "failed"` as a conflict.
+
+## Result statuses
+
+`execute()` returns an `ExecutionResult` with one of six status values:
+
+- `succeeded`: The capability returned a result, and the store recorded it.
+- `denied`: The authorization function returned `false` or threw.
+- `rejected`: Required approval was missing, invalid, rejected, or unavailable.
+- `failed`: Kaji has a definitive failure. Current cases include idempotency conflicts and explicit `knownFailure()` results.
+- `cancelled`: Cancellation stopped the request before capability execution began.
+- `unknown`: Kaji could not prove the final result. Do not blindly retry this status.
+
+A thrown or rejected capability execution becomes `unknown` by default. The side effect can commit before the error reaches Kaji.
+
+Application code can throw `knownFailure(cause)` only when it knows that no side effect committed. Kaji then returns `status: "failed"`.
+
+`failed` does not state whether an error is retryable or permanent. Your application owns that policy.
+
+```ts
+import { knownFailure } from "@irogane/kaji";
+
+try {
+  return await provider.refund(input, { signal: context.signal });
+} catch (cause) {
+  if (providerRejectedBeforeCommit(cause)) throw knownFailure(cause);
+  throw cause;
+}
+```
+
+A store failure while Kaji records a terminal result also returns `unknown`. The status does not promise that the capability started.
+
+## Idempotency and durability
+
+Kaji prevents duplicate capability execution through the configured `ExecutionStore`. The store must claim one operation atomically and return the recorded outcome to duplicate callers.
+
+Kaji does not provide globally distributed exactly-once execution. Cross-process and restart guarantees depend on your store implementation.
+
+Kaji also does not make an external provider idempotent. Pass `context.idempotencyKey` to the provider when the provider supports idempotency.
+
+## Authorization and approval
+
+Your application owns authorization policy. Each capability receives the validated input and the caller-supplied `principalId`.
+
+Kaji checks authorization before it calls the capability. A denied request returns `denied` and does not execute the application action.
+
+A capability can declare when approval is required. Your application supplies the approval handler, approval policy, user interface, and identity checks.
+
+Kaji accepts optional approval evidence but does not expose or persist it. Your approval system must retain any required audit evidence.
+
+Approval fails closed. Missing, invalid, rejected, or failed approval returns `rejected` and prevents capability execution.
+
+## Timeout and cancellation
+
+Kaji passes an `AbortSignal` to the capability through `ExecutionContext`. A caller signal and the optional `timeoutMs` value feed this signal.
+
+`timeoutMs` aborts the effective signal after the configured duration. Kaji still awaits `execute()` until it settles, so the capability must observe the signal to interrupt work.
+
+Cancellation before capability execution returns `cancelled`. When `execute()` rejects after an abort, Kaji returns `unknown` because a side effect can already have committed.
+
+If `execute()` ignores the signal and later resolves, Kaji can return `succeeded`. An abort does not prove rollback or that a remote operation stopped.
+
+## Responsibility boundary
+
+Kaji owns:
+
+- the execution order
+- input validation before policy and effects
+- idempotency claim coordination through the configured store
+- authorization and approval enforcement
+- explicit result classification
+- minimal execution evidence
+
+Your application owns:
+
+- capability definitions
+- caller identity and `principalId`
+- authorization policy
+- approval policy, interface, and evidence
+- the `ExecutionStore` used in production
+- provider calls and provider-side idempotency
+- reconciliation for `unknown` outcomes
+- business audit data and observability
 
 ## What Kaji is not
 
-Kaji does not provide an agent framework, model SDK, workflow engine,
-MCP runtime, tool registry, identity provider, queue, scheduler, retry
-engine, or event-sourcing system. Your application supplies identity,
-authorization policy, and domain logic; Kaji only governs how a request
-to run one action is validated, authorized, approved, executed once,
-and recorded.
+Kaji is not an agent framework, workflow engine, IAM system, approval product, retry service, database, distributed lock service, event store, or recovery worker.
+
+Kaji does not choose tools or plan actions. It governs the point where approved application code can create a real side effect.
 
 ## Documentation
 
-Full documentation, guides, and the API reference are at
-[kaji.build](https://kaji.build). A complete runnable proof example
-lives in [`examples/refund`](https://github.com/enkyuan/kaji/tree/main/examples/refund)
-in the repository.
+- [Getting started](https://kaji.build/docs/getting-started)
+- [Architecture](https://kaji.build/docs/architecture)
+- [Outcomes](https://kaji.build/docs/concepts/outcomes)
+- [Stores](https://kaji.build/docs/concepts/stores)
+- [API reference](https://kaji.build/docs/reference/api)
+- [Refund example](https://kaji.build/docs/reference/refund-example)
 
-## License
+The repository contains the runnable proof example at `examples/refund`.
 
-FSL-1.1-ALv2. See [LICENSE](https://github.com/enkyuan/kaji/blob/main/LICENSE).
+## Repository development
+
+This repository uses Bun 1.3.11.
+
+```bash
+bun install --frozen-lockfile
+bun run format:check
+bun run lint
+bun run typecheck
+bun run test
+bun run build
+bun run package:check
+bun run package:smoke
+bun run example:refund
+```
+
+See `AGENTS.md` before you make repository changes.

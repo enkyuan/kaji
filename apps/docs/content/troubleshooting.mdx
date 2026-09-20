@@ -1,135 +1,174 @@
 ---
 title: Troubleshooting
-description: Diagnose common capability, executor, and execution-store failures.
+description: Diagnose capability, execution, approval, timeout, and store failures.
 ---
 
-Start with the first error you can reproduce, then apply the matching fix.
+Start with the first error or result that you can reproduce. Then use the matching section.
 
-## `capability() requires a non-empty name.`
+## Capability construction fails
 
-`capability({ name })` must be a non-empty string. This is thrown at
-construction time, before the capability is ever executed.
+### `capability() requires a non-empty name.`
 
-## `capability() requires an authorize function.`
+Give every capability a stable, non-empty name. Kaji checks the name when you create the capability.
 
-Every capability must declare `authorize`. There is no default policy —
-Kaji does not decide who may run an action, so an omitted `authorize` fails
-fast instead of defaulting to allow or deny.
+### `capability() requires an authorize function.`
 
-## `ExecutionRequest.principalId must be a non-empty string.` / `...idempotencyKey must be a non-empty string.`
+Define `authorize` for every capability. Kaji has no default authorization policy.
 
-Both fields are required on every call to `kaji.execute()`. Kaji never
-infers a principal or generates an idempotency key on the caller's behalf —
-supply both explicitly from your request.
+### `capability() requires input to be a Standard Schema (missing "~standard" property).`
 
-## A retried request returns a `failed` conflict instead of running again
+`input` must be a [Standard Schema](https://standardschema.dev) V1 schema. Zod, Valibot, and ArkType schemas conform natively. A hand-written schema needs a `~standard` property with `version: 1` and a `validate` function.
 
-```ts
-error: new Error('Idempotency key "..." was already used for a different request.');
+### `capability() input schema must implement Standard Schema version 1.`
+
+The schema's `~standard.version` is not `1`. Kaji only supports Standard Schema V1.
+
+### `capability() input schema must provide a "~standard.validate" function.`
+
+The schema's `~standard` object is missing a callable `validate` function.
+
+## `kaji.execute()` rejects before returning a result
+
+Kaji can reject before it establishes an execution claim.
+
+Common causes include:
+
+- an empty `principalId`
+- an empty `idempotencyKey`
+- invalid capability input (`InvalidInputError`)
+- `store.claim()` failure
+
+Kaji does not call authorization, approval, or capability execution after one of these failures.
+
+## Capability input is rejected as invalid
+
+Kaji rejects with `InvalidInputError` (`error.name === "InvalidInputError"`) when the capability's schema reports issues. Its `issues` property carries the schema's Standard Schema issues verbatim.
+
+This happens before any claim, authorization, approval, or execution. Fix the input or the schema; Kaji does not call the capability.
+
+## A retry returns the previous result
+
+An identical execution claim returns its pending or recorded result. Kaji does not call the capability again.
+
+The execution identity contains:
+
+- capability name
+- `principalId`
+- `idempotencyKey`
+
+The validated input fingerprint must also match.
+
+For a new operation under the same capability and principal, use a new idempotency key.
+
+## A retry returns a `failed` conflict
+
+Kaji returns a conflict when the same execution identity has a different validated input fingerprint.
+
+```text
+Idempotency key "..." was already used for a different request.
 ```
 
-The idempotency key was already claimed with a different input,
-capability, or principal. One idempotency key identifies exactly one
-intended operation; reusing it for a materially different request is a
-conflict, not a retry. Generate a new idempotency key for a genuinely new
-operation.
+Use the original input for a retry. Use a new idempotency key for a new operation.
 
-## A request I expected to execute returns the previous result instead
+The same idempotency key can identify separate executions under a different capability or principal.
 
-This is expected, not a bug: a repeated execution with the same capability,
-principal, idempotency key, and input fingerprint returns the recorded
-outcome instead of running `execute` again. If you intended a new
-operation, use a new idempotency key.
+## The result is `denied`
 
-## `execute()` settles `rejected`
+`authorize` returned `false` or threw. Kaji did not call the capability.
 
-Approval was required (`approval` returned `true`) and was not granted.
-Check, in order:
+Inspect the application authorization policy. Kaji does not explain or replace that policy.
 
-1. Is `approve` configured on `createKaji()` at all? An absent handler
-   always settles `rejected`.
-2. Does your `approve` handler return `{ approved: boolean }`? Any other
-   shape is treated as an invalid decision and settles `rejected`.
-3. Did your `approve` handler throw or reject? A handler error settles
-   `rejected`, not `unknown` — approval failures are never ambiguous about
-   whether the action ran, because it hasn't yet.
+## The result is `rejected`
 
-## `execute()` settles `denied`
+The request required approval, but Kaji did not receive a valid approval.
 
-`authorize` returned `false`, or it threw before returning. Kaji does not
-provide an authorization system — the decision is entirely your
-application's `authorize` function. Add logging inside `authorize` itself
-if you need to know why a specific request was denied.
+Check these cases:
 
-## `execute()` settles `unknown` and I want to retry
+1. `createKaji()` has no `approve` handler.
+2. The handler returned a value without `{ approved: boolean }`.
+3. The handler returned `{ approved: false }`.
+4. The handler threw or rejected.
 
-Read `unknown` as "Kaji cannot prove whether the side effect happened," not
-as an ordinary failure. Do not retry it automatically. Instead:
+All four cases prevent capability execution.
 
-1. Use `result.evidence` (`executionId`, `inputFingerprint`) to look up
-   whatever your application or downstream provider can tell you about
-   this specific operation.
-2. If your capability's `execute` function can reconcile the ambiguity
-   itself — for example, checking the provider for an existing committed
-   effect by idempotency key — do that before deciding to retry.
-3. Only call `kaji.execute()` again with the _same_ idempotency key once
-   you're ready to accept its behavior: a repeated call with the same key
-   and input still returns the recorded `unknown` result rather than
-   re-running `execute`. To force a genuinely new attempt, use a new
-   idempotency key, and only after you've confirmed the original operation
-   did not commit.
+## The result is `failed`
 
-## My capability's own errors are always `unknown`, never `failed`
+`failed` is a definitive failure for the governed request.
 
-Kaji treats every thrown or rejected `execute` call as `unknown` by
-default — it has no way to know whether your side effect committed before
-the error surfaced. If your application code can prove a specific failure
-never committed a side effect (for example, a payment provider that
-confirms a charge was declined before any charge occurred), throw
-`knownFailure(cause)` for that specific case:
+Current cases include an idempotency conflict and an explicit `knownFailure(cause)` from capability execution.
+
+The status does not state whether the error is retryable or permanent. The application owns that policy.
+
+## Capability errors return `unknown`
+
+Kaji treats a normal thrown or rejected `execute()` call as `unknown`. It cannot infer whether the side effect committed before the error surfaced.
+
+Use `knownFailure(cause)` only when application code proves that no side effect committed.
 
 ```ts
-import { knownFailure } from "@irogane/kaji";
-
 execute: async (input, context) => {
   try {
-    return await provider.charge(input);
+    return await provider.refund(input, {
+      idempotencyKey: context.idempotencyKey,
+      signal: context.signal,
+    });
   } catch (cause) {
-    if (isDefinitelyDeclined(cause)) throw knownFailure(cause);
-    throw cause; // stays unknown: the side effect may have committed
+    if (providerRejectedBeforeCommit(cause)) throw knownFailure(cause);
+    throw cause;
   }
 },
 ```
 
-Kaji never infers this from an error's class, message, or status code —
-only throw `knownFailure()` when your own code has proven no side effect
-occurred.
+Kaji does not infer known failure from an error class, message, or status code.
 
-## Cancellation didn't stop my side effect
+## I want to retry `unknown`
 
-Cancellation is cooperative. If your capability's `execute` function
-doesn't check `context.signal` (or pass it to an operation that does), Kaji
-cannot force it to stop. Once `execute` has been called, an aborted signal
-can no longer prevent the action — it can only ask the capability to stop,
-and the resulting outcome settles `unknown` rather than `cancelled`.
+Do not blindly retry. The original side effect can already have committed.
 
-## `timeoutMs` elapsed but the remote operation still ran
+Use `result.evidence` and provider records to reconcile the operation.
 
-A timeout means Kaji stopped waiting — it is not a rollback and is not
-proof the operation didn't happen. The corresponding execution settles
-`unknown`. If you need to know the real outcome, reconcile with the
-downstream system using the execution's idempotency key, the same as any
-other `unknown` result.
+Calling Kaji again with an identical claim returns the recorded `unknown`. It does not call the capability again.
 
-## My custom `ExecutionStore` throws during `claim()` or `record()`
+Use a new idempotency key only after you prove that a new operation is safe.
 
-A `claim()` failure causes `kaji.execute()` itself to throw — Kaji cannot
-establish the execution boundary at all in that case, since no execution
-record exists yet. A `record()` failure after execution instead settles the
-returned result as `unknown`: Kaji cannot prove the outcome was durably
-recorded, so it can't tell the caller the capability's real result.
+## Cancellation did not stop the capability
 
-`memoryStore()` is process-local and non-durable; it is meant for local
-development, tests, and examples, not production. A production deployment
-needs its own durable `ExecutionStore` implementation satisfying the same
-claim/record contract.
+Cancellation is cooperative. Kaji cannot forcibly terminate `execute()` or a remote request.
+
+Pass `context.signal` to downstream APIs. Custom capability code must also observe the signal at safe points.
+
+If `execute()` ignores the signal and later resolves, Kaji can return `succeeded`.
+
+## `timeoutMs` elapsed, but Kaji still waited
+
+This is the shipped behavior. `timeoutMs` aborts the effective `context.signal` after the configured duration.
+
+Kaji continues awaiting `execute()` until it settles. Therefore, `timeoutMs` does not bound capability wall-clock time.
+
+For the timeout to interrupt work, the capability or downstream API must observe the signal.
+
+If `execute()` rejects after the abort, Kaji applies normal post-start ambiguity rules and returns `unknown`.
+
+## The remote operation continued after an abort
+
+An abort does not imply rollback. It does not prove that a remote system stopped or rejected the operation.
+
+Reconcile the result with the downstream system before you create another operation.
+
+## `store.claim()` fails
+
+Kaji rejects with an error whose `name` is `KajiConfigurationError`. It could not establish the execution boundary.
+
+Inspect store availability and the atomic claim implementation.
+
+## `store.record()` fails
+
+Kaji returns `status: "unknown"`. A side effect can already have committed, but Kaji could not confirm settlement.
+
+Inspect the store before you retry or create a new operation.
+
+## `memoryStore()` loses records
+
+`memoryStore()` is process-local and non-durable. It loses all claims and outcomes when the process exits.
+
+Use it for development, tests, and examples. Production deployments need an `ExecutionStore` with the required coordination and durability.

@@ -4,14 +4,14 @@ import { createKaji } from "../src/kaji.ts";
 import { knownFailure } from "../src/errors.ts";
 import { memoryStore } from "../src/store/memory.ts";
 import type { ExecutionStore } from "../src/store/store.ts";
-import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
+import { baseRequest, refundSchema, type Refund } from "./execution-fixtures.ts";
 
 describe("invalid request metadata", () => {
   it("rejects an empty principalId before validation, claim, authorization, or execution", async () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: vi.fn(),
       execute,
     });
@@ -27,7 +27,7 @@ describe("invalid request metadata", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -49,7 +49,7 @@ describe("invalid capability input", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize,
       approval,
       execute,
@@ -72,7 +72,7 @@ describe("authorization", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => false,
       approval,
       execute,
@@ -91,7 +91,7 @@ describe("authorization", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => {
         throw cause;
       },
@@ -113,7 +113,7 @@ describe("approval", () => {
     const execute = vi.fn(async (input: Refund) => input);
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: () => false,
       execute,
@@ -132,7 +132,7 @@ describe("approval", () => {
     const execute = vi.fn(async (input: Refund) => input);
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: () => true,
       execute,
@@ -150,7 +150,7 @@ describe("approval", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: () => true,
       execute,
@@ -167,7 +167,7 @@ describe("approval", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: () => true,
       execute,
@@ -185,7 +185,7 @@ describe("approval", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: () => true,
       execute,
@@ -208,7 +208,7 @@ describe("approval", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: () => true,
       execute,
@@ -238,7 +238,7 @@ describe("store claim failure", () => {
     const execute = vi.fn(async (input: Refund) => input);
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -257,7 +257,7 @@ describe("ordinary execution failure", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -277,7 +277,7 @@ describe("ordinary execution failure", () => {
     const execute = vi.fn().mockRejectedValue(new Error("ordinary failure"));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -298,7 +298,7 @@ describe("known failure", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -320,7 +320,7 @@ describe("known failure", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -340,7 +340,7 @@ describe("known failure", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -358,7 +358,7 @@ describe("known failure", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -386,7 +386,7 @@ describe("settlement failure after a real side effect", () => {
     const execute = vi.fn(async (input: Refund) => ({ refunded: input.amount }));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -417,9 +417,13 @@ describe("execution ordering", () => {
     const refund = capability({
       name: "payments.refund",
       input: {
-        parse: (value) => {
-          calls.push("validate");
-          return value as Refund;
+        "~standard": {
+          version: 1 as const,
+          vendor: "test",
+          validate: (value: unknown) => {
+            calls.push("validate");
+            return { value: value as Refund };
+          },
         },
       },
       authorize: () => {
@@ -449,7 +453,7 @@ describe("execution ordering", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => false,
       approval,
       execute,
@@ -470,7 +474,7 @@ describe("execution ordering", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: () => true,
       execute,
@@ -480,5 +484,122 @@ describe("execution ordering", () => {
     await kaji.execute(refund, baseRequest());
 
     expect(execute).toHaveBeenCalledTimes(0);
+  });
+});
+
+describe("async Standard Schema validation", () => {
+  function deferredSchema(value: Refund) {
+    let resolve!: (result: { value: Refund }) => void;
+    const validate = vi.fn(
+      () =>
+        new Promise<{ value: Refund }>((res) => {
+          resolve = res;
+        }),
+    );
+    const finish = () => resolve({ value });
+    return { validate, finish };
+  }
+
+  it("runs no later stage while async validation is pending, then continues in order", async () => {
+    const calls: string[] = [];
+    const store = memoryStore();
+    const instrumented: ExecutionStore = {
+      claim: async (claim) => {
+        calls.push("claim");
+        return store.claim(claim);
+      },
+      record: async (execution) => {
+        calls.push("settle");
+        return store.record(execution);
+      },
+    };
+    const _authorize = vi.fn(() => true);
+    const _approval = vi.fn(() => true);
+    const _execute = vi.fn();
+    const deferred = deferredSchema({ paymentId: "pay_1", amount: 10 });
+
+    const refund = capability({
+      name: "payments.refund",
+      input: {
+        "~standard": {
+          version: 1 as const,
+          vendor: "test",
+          validate: (_value: unknown) => {
+            calls.push("validate");
+            return deferred.validate();
+          },
+        },
+      },
+      authorize: () => {
+        calls.push("authorize");
+        return true;
+      },
+      approval: () => {
+        calls.push("approval");
+        return true;
+      },
+      execute: async (input) => {
+        calls.push("execute");
+        return input;
+      },
+    });
+    const kaji = createKaji({ store: instrumented, approve: async () => ({ approved: true }) });
+
+    const pending = kaji.execute(refund, baseRequest());
+    // Deterministic flush: let execute() reach the validation await.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deferred.validate).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["validate"]);
+
+    deferred.finish();
+    await pending;
+
+    expect(calls).toEqual(["validate", "claim", "authorize", "approval", "execute", "settle"]);
+  });
+
+  it("runs no later stage when async validation reports issues", async () => {
+    const store = memoryStore();
+    const claimSpy = vi.spyOn(store, "claim");
+    const recordSpy = vi.spyOn(store, "record");
+    const authorize = vi.fn(() => true);
+    const approval = vi.fn(() => true);
+    const execute = vi.fn();
+    let settleValidation!: () => void;
+    const validate = vi.fn(
+      () =>
+        new Promise<{ issues: [{ message: string }] }>((resolve) => {
+          settleValidation = () => resolve({ issues: [{ message: "async invalid" }] });
+        }),
+    );
+
+    const refund = capability({
+      name: "payments.refund",
+      input: {
+        "~standard": {
+          version: 1 as const,
+          vendor: "test",
+          validate: () => validate(),
+        },
+      },
+      authorize,
+      approval,
+      execute,
+    });
+    const kaji = createKaji({ store });
+
+    const pending = kaji.execute(refund, baseRequest());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    settleValidation();
+    await expect(pending).rejects.toThrow("async invalid");
+
+    expect(claimSpy).not.toHaveBeenCalled();
+    expect(authorize).not.toHaveBeenCalled();
+    expect(approval).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+    expect(recordSpy).not.toHaveBeenCalled();
   });
 });

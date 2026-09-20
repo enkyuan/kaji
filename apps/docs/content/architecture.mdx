@@ -1,76 +1,84 @@
 ---
 title: Architecture
-description: The one canonical execution path Kaji uses to run a capability, and the boundaries it does and does not own.
+description: Understand Kaji's execution boundary, order, and ownership model.
 ---
 
-## Execution Path
-
-`kaji.execute(capability, request)` is the only way a capability runs. There
-is no second path, so no caller can accidentally skip a safety boundary. For
-one request, the executor:
-
-1. Validates `principalId` and `idempotencyKey` are non-empty strings.
-2. Validates `input` against the capability's `input.parse()`.
-3. Claims the idempotency key in the execution store. An existing claim
-   returns the same recorded or in-flight outcome instead of running
-   `execute` again; a conflicting claim (same key, different input,
-   capability, or principal) settles `failed`.
-4. Calls `authorize({ principalId, input })`. A `false` result or a thrown
-   error settles `denied`.
-5. If `approval({ principalId, input })` returns `true`, calls the
-   configured `approve` handler. A missing handler, an invalid decision, a
-   rejected decision, or a handler error settles `rejected`.
-6. Calls `execute(input, context)` at most once.
-7. Records the outcome in the execution store and returns it.
-
-Cancellation is checked before each step that hasn't yet started a side
-effect; once `execute` has been called, Kaji can no longer prove the action
-didn't begin, so every failure path from that point settles `unknown` rather
-than an ordinary failure.
+Kaji runs inside your application. It governs the transition from a requested action to application code that can create a side effect.
 
 ```text
-request
-  → validate input
-  → claim idempotency key
-  → authorize
-  → approve (if required)
-  → execute            (side effects may begin here)
-  → record outcome
+agent / automation / caller
+            ↓
+      application adapter
+            ↓
+      kaji.execute(...)
+            ↓
+   application capability
+            ↓
+ application / provider
 ```
 
-## Boundaries
+## One execution path
 
-Kaji owns the execution boundary; it does not own what's on either side of
-it.
+`kaji.execute()` applies this order:
 
-- **Capability code is ordinary application code.** `execute`,
-  `authorize`, and `approval` are functions your application supplies. Kaji
-  never contains business logic, and it never calls a capability's
-  functions outside `kaji.execute()`.
-- **The execution store is a narrow contract.** It claims idempotency keys
-  atomically and records terminal outcomes. It is not a general event log,
-  and v0 ships only `memoryStore()`, a process-local, non-durable
-  implementation. A production deployment supplies its own durable
-  `ExecutionStore`.
-- **Approval is a decision, not a UI.** Kaji calls the `approve` handler you
-  configure and enforces its decision; it does not implement a review queue,
-  notification system, or audit UI.
-- **Cancellation and timeout use native `AbortSignal`.** Kaji combines the
-  caller's signal with its own `timeoutMs` into one effective signal; it
-  does not invent a Kaji-specific cancellation token.
+1. Validate the request and capability input.
+2. Claim the execution identity in the configured store.
+3. Check application authorization.
+4. Request application approval when required.
+5. Call the capability `execute` function.
+6. Record the terminal result.
 
-## Footnotes
+The claim step also decides two branch outcomes instead of continuing this order: an identical existing claim returns its stored or pending result, and a conflicting claim (same identity, different validated input) returns `status: "failed"`. Neither branch calls the capability.
 
-Kaji has no agent loop, model provider, tool registry, session or event
-store, CLI, or hosted control plane. An agent framework, MCP server, or
-direct application code decides what action to request; Kaji only governs
-how that one action is safely executed. See `docs/product.md` in the
-repository for the complete non-goal list.
+The public API exposes no alternate execution path.
 
-## Further Reading
+## The execution identity
 
-- [Capabilities](/docs/concepts/capability)
+Kaji combines three caller-visible values:
+
+- capability name
+- `principalId`
+- `idempotencyKey`
+
+The store also receives a fingerprint of the validated input. This fingerprint detects conflicting reuse of one idempotency key.
+
+Kaji does not store the raw input through the `ExecutionStore` contract.
+
+## Before capability execution
+
+Validation, authorization, approval, and pre-execution cancellation happen before Kaji calls the capability.
+
+A denied, rejected, or cancelled request prevents capability execution. Kaji records that result when the store remains available.
+
+Claiming the idempotency key happens before authorization. This order makes retries of a denied or rejected request return the same stored result.
+
+## After capability execution begins
+
+After Kaji calls `execute`, an external side effect can start. A normal thrown error cannot prove whether that side effect committed.
+
+Kaji returns `unknown` for this ambiguous case. Application code can use `knownFailure()` only when it knows that no side effect committed.
+
+A timeout aborts the execution signal. It does not roll back a side effect or prove that a remote operation stopped.
+
+## Store boundary
+
+The `ExecutionStore` decides whether one claim is new, identical, or conflicting. It also records terminal results.
+
+The store must coordinate concurrent claims for the same execution identity. Exactly one caller can receive `status: "claimed"` for that identity.
+
+The configured store defines the persistence and coordination scope. `memoryStore()` coordinates only one process and loses all records at process exit.
+
+## Ownership
+
+Kaji owns the execution order, boundary enforcement, result classification, and minimal evidence.
+
+The application owns identity, policy, approval systems, provider behavior, production storage, reconciliation, observability, and business audit data.
+
+Kaji is not an IAM system, workflow engine, retry service, database, distributed lock service, event store, or recovery worker.
+
+## Related guides
+
 - [Execution](/docs/concepts/executor)
-- [Approval](/docs/concepts/approval)
-- [Idempotency](/docs/concepts/idempotency)
-- [Timeout](/docs/concepts/cancellation)
+- [Outcomes](/docs/concepts/outcomes)
+- [Stores](/docs/concepts/stores)
+- [Timeout and cancellation](/docs/concepts/cancellation)

@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { capability } from "../src/capability.ts";
-import type { InputParser } from "../src/schema.ts";
+import type { StandardSchemaV1 } from "../src/schema.ts";
 
 type Refund = { paymentId: string; amount: number };
 
-const refundParser: InputParser<Refund> = {
-  parse: (value) => value as Refund,
+const refundSchema: StandardSchemaV1<Refund, Refund> = {
+  "~standard": {
+    version: 1,
+    vendor: "test",
+    validate: (value) => ({ value: value as Refund }),
+  },
 };
 
 const authorize = async () => true;
@@ -14,7 +18,7 @@ describe("capability", () => {
   it("accepts a valid definition", () => {
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize,
       execute: async (input) => input,
     });
@@ -26,7 +30,7 @@ describe("capability", () => {
     expect(() =>
       capability({
         name: "",
-        input: refundParser,
+        input: refundSchema,
         authorize,
         execute: async (input) => input,
       }),
@@ -37,7 +41,7 @@ describe("capability", () => {
     expect(() =>
       capability({
         name: "   ",
-        input: refundParser,
+        input: refundSchema,
         authorize,
         execute: async (input) => input,
       }),
@@ -48,7 +52,7 @@ describe("capability", () => {
     expect(() =>
       capability({
         name: "payments.refund",
-        input: refundParser,
+        input: refundSchema,
         // @ts-expect-error authorize is required
         authorize: undefined,
         execute: async (input) => input,
@@ -59,7 +63,7 @@ describe("capability", () => {
   it("preserves the original name exactly", () => {
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize,
       execute: async (input) => input,
     });
@@ -74,7 +78,7 @@ describe("capability", () => {
 
     capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: async () => {
         authorizeCalled = true;
         return true;
@@ -97,7 +101,7 @@ describe("capability", () => {
   it("cannot be mutated after construction", () => {
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize,
       execute: async (input) => input,
     });

@@ -1,7 +1,7 @@
 {
   "name": "@irogane/kaji",
   "version": "0.3.1",
-  "description": "Execution primitives for safely running application actions requested by AI agents.",
+  "description": "An embedded execution layer for application actions requested by agents, automations, and other callers.",
   "homepage": "https://kaji.build",
   "bugs": {
     "url": "https://github.com/enkyuan/kaji/issues"
@@ -45,6 +45,7 @@
     "publint": "^0.3.12",
     "tsdown": "^0.17.3",
     "typescript": "^6.0.3",
+    "valibot": "^1",
     "vitest": "^4.1.0"
   }
 }

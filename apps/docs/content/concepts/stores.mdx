@@ -1,0 +1,87 @@
+---
+title: Stores
+description: Provide claim coordination and outcome storage for governed executions.
+---
+
+Every Kaji executor requires an `ExecutionStore`.
+
+```ts
+export type ExecutionStore = {
+  claim(claim: ExecutionClaim): Promise<ClaimResult>;
+  record(execution: StoredExecution): Promise<void>;
+};
+```
+
+The store does not execute capabilities or decide authorization, approval, retries, or recovery.
+
+## Claim contract
+
+```ts
+export type ExecutionClaim = {
+  readonly capability: string;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly inputFingerprint: string;
+};
+```
+
+`claim()` returns one of three values:
+
+```ts
+export type ClaimResult =
+  | { readonly status: "claimed"; readonly executionId: string }
+  | { readonly status: "existing"; readonly outcome: Promise<StoredExecution> }
+  | { readonly status: "conflict"; readonly executionId: string };
+```
+
+- `claimed` allows one new governed execution.
+- `existing` returns the pending or recorded outcome for an identical claim.
+- `conflict` reports the same identity with a different validated input fingerprint.
+
+The claim must be atomic enough that concurrent identical callers produce exactly one `claimed` result.
+
+## Record contract
+
+`record()` stores one terminal `ExecutionResult` for the claimed execution.
+
+A record must not overwrite an existing terminal outcome. In particular, a store must not replace `unknown` with another status through replay.
+
+When `record()` fails, Kaji returns `status: "unknown"` because it cannot confirm settlement.
+
+## `memoryStore()`
+
+```ts
+const kaji = createKaji({ store: memoryStore() });
+```
+
+`memoryStore()` implements the store contract for development, tests, and examples.
+
+It has these limits:
+
+- process-local claims
+- no cross-process visibility
+- no persistence
+- no restart durability
+
+It uses an in-process map and `crypto.randomUUID()` for execution IDs.
+
+## Production stores
+
+Kaji v0 does not include a database store, distributed lock, event stream, retry system, or recovery worker.
+
+A production store must define the guarantee that your deployment needs. Review:
+
+- atomic claims for one execution identity
+- visibility across application processes
+- outcome durability across restarts
+- failure behavior for claim and record operations
+- retention and cleanup policy
+- access control for execution evidence
+
+A store can keep additional internal data. The public contract requires only the claim and terminal result shapes.
+
+## Store failures
+
+A claim failure rejects with `KajiConfigurationError`. Kaji has not established an execution record at that point.
+
+A record failure resolves as `status: "unknown"`. Capability execution can already have created a side effect.

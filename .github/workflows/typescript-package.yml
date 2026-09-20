@@ -5,6 +5,7 @@ name: TypeScript package
 on:
   pull_request:
     paths:
+      - "README.md"
       - "packages/ts/**"
       - "examples/**"
       - "bun.lock"
@@ -14,6 +15,7 @@ on:
     branches:
       - main
     paths:
+      - "README.md"
       - "packages/ts/**"
       - "examples/**"
       - "bun.lock"
@@ -40,6 +42,7 @@ jobs:
       - run: bun --filter=@irogane/kaji run typecheck
       - run: bun --filter=@irogane/kaji run test
       - run: bun --filter=@irogane/kaji run build
+      - run: bun run readme:check
       - run: bun --filter=@irogane/kaji run package:check
       - run: bun --filter=@irogane/kaji run package:smoke
       - run: bun --filter=@irogane/kaji-example-refund run typecheck

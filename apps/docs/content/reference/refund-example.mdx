@@ -1,0 +1,127 @@
+---
+title: Refund example
+description: Run a proof of success, replay, ambiguous execution, and known failure.
+---
+
+The repository includes a runnable refund example in `examples/refund`.
+
+It uses a fake payment provider to prove what happens outside Kaji. The example exits with a nonzero status when an assertion fails.
+
+## Run the example
+
+From the repository root:
+
+```bash
+bun install --frozen-lockfile
+bun run example:refund
+```
+
+The expected result proves four cases:
+
+1. A fresh refund returns `succeeded` and commits once.
+2. An identical retry returns the recorded result without another capability call.
+3. A provider call that commits the refund but fails before its response reaches the capability returns `unknown`, even though the refund committed.
+4. A provider-declined refund uses `knownFailure()` and returns `failed`.
+
+## Application code
+
+The application defines its input, authorization rule, approval rule, and provider call.
+
+```ts
+const refund = capability({
+  name: "payments.refund",
+  input: RefundInput,
+  authorize: ({ principalId, input }) => canRefund(principalId, input.paymentId),
+  approval: ({ input }) => input.amount >= 500,
+  execute: async (input, context) => {
+    try {
+      return await payments.refund({
+        ...input,
+        idempotencyKey: context.idempotencyKey,
+        signal: context.signal,
+      });
+    } catch (cause) {
+      if (cause instanceof PaymentDeclinedError) {
+        throw knownFailure(cause);
+      }
+      throw cause;
+    }
+  },
+});
+```
+
+The capability passes both `idempotencyKey` and `signal` to the provider.
+
+The application owns `canRefund()`, the approval threshold, the provider client, and the known-failure proof.
+
+## Kaji configuration
+
+```ts
+const kaji = createKaji({
+  store: memoryStore(),
+  approve: async () => ({ approved: true }),
+});
+```
+
+The example uses deterministic approval. A production application can use its own user interface or approval service.
+
+`memoryStore()` is suitable for this proof. It is not durable production storage.
+
+## Fresh execution
+
+```ts
+const first = await kaji.execute(refund, {
+  input: { paymentId: "pay_123", amount: 750 },
+  principalId: "user_123",
+  idempotencyKey: "refund_req_123",
+});
+
+assert.equal(first.status, "succeeded");
+assert.equal(payments.committedRefundCount(), 1);
+```
+
+Kaji validates, claims, authorizes, obtains approval, calls the capability, and records the result.
+
+## Identical replay
+
+The example repeats the same capability, principal, idempotency key, and input.
+
+```ts
+const replay = await kaji.execute(refund, {
+  input: { paymentId: "pay_123", amount: 750 },
+  principalId: "user_123",
+  idempotencyKey: "refund_req_123",
+});
+
+assert.deepEqual(replay, first);
+assert.equal(payments.committedRefundCount(), 1);
+```
+
+Kaji returns the recorded result. It does not call the capability again.
+
+## Ambiguous provider result
+
+A second capability uses a provider method that commits the refund and then loses the acknowledgement.
+
+The provider throws after the side effect. Kaji cannot prove the final result, so it returns `unknown`.
+
+An identical retry returns that recorded `unknown`. The provider commit count stays unchanged.
+
+## Known failure
+
+The provider can prove that an oversized refund was declined before any refund committed.
+
+Application code wraps that specific error with `knownFailure()`. Kaji returns `failed`, not `unknown`.
+
+## Two idempotency boundaries
+
+Kaji and the payment provider enforce different boundaries.
+
+Kaji coordinates capability execution through `ExecutionStore`. The fake provider separately tracks committed refunds by its own idempotency key.
+
+A real application must keep provider-side idempotency when the provider supports it. Kaji cannot create that guarantee inside an external system.
+
+## Source
+
+- [`examples/refund/src/app.ts`](https://github.com/enkyuan/kaji/blob/main/examples/refund/src/app.ts)
+- [`examples/refund/src/payments.ts`](https://github.com/enkyuan/kaji/blob/main/examples/refund/src/payments.ts)
