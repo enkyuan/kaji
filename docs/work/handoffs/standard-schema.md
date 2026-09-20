@@ -2,8 +2,8 @@
 
 Branch: refactor/standard-schema
 Base SHA: 21b40c3fd51d4ddb7ebc97e00ae26691f19b96d5 (origin/main at task start)
-Head SHA: see git log — recorded after final review pass
-State: IMPLEMENTING — code complete and verified; docs reconciliation pending
+Head SHA: edef94b (PR #25 https://github.com/enkyuan/kaji/pull/25, intentionally unmerged)
+State: REVIEW COMPLETE — PR #25 open, awaiting editorial merge, docs reconciliation, and explicit approval before merge
 
 ## Goal
 
