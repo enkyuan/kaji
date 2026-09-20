@@ -21,8 +21,9 @@ approval, and protection against duplicate or ambiguous side effects.
 Kaji standardizes that boundary once, inside your application, instead
 of once per caller.
 
-Kaji is a TypeScript library with zero runtime dependencies. It runs in
-your process — no server, database, or control plane.
+Kaji is a TypeScript library published as `@irogane/kaji` with zero
+runtime dependencies. It runs in your process — no server, database,
+or control plane.
 
 ## Install
 
@@ -80,21 +81,6 @@ const result = await kaji.execute(refund, {
 `canRefund()` and `payments.refund()` are your own application code.
 Kaji never sees your domain logic — it only governs when `execute` runs.
 
-## Why Kaji
-
-- **Explicit identity.** Every execution requires a caller-supplied
-  `principalId`. Kaji never infers one from process state.
-- **Validation before anything else.** Invalid input never reaches
-  `authorize`, `approval`, or `execute`.
-- **Duplicate suppression.** A caller-supplied `idempotencyKey` claims
-  one intended operation; a repeated request with the same key replays
-  the recorded result instead of running `execute` again.
-- **Fail-closed approval.** A capability declares when approval is
-  required; the host application supplies how a decision is obtained;
-  a missing, rejected, or failed decision prevents execution.
-- **Explicit failure semantics.** `succeeded`, `failed`, and `unknown`
-  are distinct outcomes — see below.
-
 ## Execution outcomes
 
 `kaji.execute()` resolves with an explicit `status` for every governed
@@ -120,39 +106,23 @@ committed may throw `knownFailure()`. See the
 [execution outcomes guide](https://kaji.build/docs/concepts/executor)
 for the full model.
 
-## memoryStore()
+## Repository
 
-`createKaji()` needs an `ExecutionStore`. `memoryStore()` is the
-built-in reference implementation:
-
-```ts
-import { memoryStore } from "@irogane/kaji";
-
-const kaji = createKaji({ store: memoryStore() });
-```
-
-`memoryStore()` is process-local and in-memory. It is useful for local
-development, tests, and examples — it is not durable and does not
-coordinate across processes or instances. A production deployment needs
-an `ExecutionStore` backed by durable, atomic storage; see
-[architecture](https://kaji.build/docs/architecture).
-
-## What Kaji is not
-
-Kaji does not provide an agent framework, model SDK, workflow engine,
-MCP runtime, tool registry, identity provider, queue, scheduler, retry
-engine, or event-sourcing system. Your application supplies identity,
-authorization policy, and domain logic; Kaji only governs how a request
-to run one action is validated, authorized, approved, executed once,
-and recorded.
+| Path             | Contents                                          |
+| ---------------- | ------------------------------------------------- |
+| `packages/ts`    | The library, published as `@irogane/kaji` on npm  |
+| `examples/refund` | Complete runnable proof example                  |
+| `apps/docs`      | The documentation site, served at kaji.build      |
+| `docs/`          | Product, architecture, invariants, API contract, ADRs, playbooks |
+| `AGENTS.md`      | Engineering standard and contribution workflow    |
 
 ## Documentation
 
 Full documentation, guides, and the API reference are at
-[kaji.build](https://kaji.build). A complete runnable proof example
-lives in [`examples/refund`](https://github.com/enkyuan/kaji/tree/main/examples/refund)
-in the repository.
+[kaji.build](https://kaji.build). Start with
+[Getting started](https://kaji.build/docs/getting-started) or read
+[what Kaji is and is not](https://kaji.build/docs/architecture).
 
 ## License
 
-FSL-1.1-ALv2. See [LICENSE](https://github.com/enkyuan/kaji/blob/main/LICENSE).
+FSL-1.1-ALv2. See [LICENSE](./LICENSE).
