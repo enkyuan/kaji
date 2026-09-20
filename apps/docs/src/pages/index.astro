@@ -4,13 +4,6 @@ import Base from "@/layouts/base.astro";
 
 const wordmark = figlet.textSync("KAJI", { font: "Alligator" });
 const wordmarkColumns = Math.max(...wordmark.split("\n").map((line) => line.length));
-
-const installCommands = {
-  npm: "npm install @irogane/kaji",
-  bun: "bun add @irogane/kaji",
-  pnpm: "pnpm add @irogane/kaji",
-} as const;
-const packageManagers = Object.keys(installCommands) as (keyof typeof installCommands)[];
 ---
 
 <Base title="Kaji" description="Kaji is the execution layer for agents." activeHref="/" shell="standalone">
@@ -72,28 +65,9 @@ const packageManagers = Object.keys(installCommands) as (keyof typeof installCom
       </div>
     </div>
 
-    <div
-      class="entry-install doc-content"
-      data-package-manager-tabs
-      data-install-commands={JSON.stringify(installCommands)}
-    >
+    <div class="entry-install doc-content">
       <div class="entry-install-frame">
-        <div class="tab-list" role="tablist" aria-label="Package manager">
-          {
-            packageManagers.map((manager, index) => (
-              <button
-                type="button"
-                role="tab"
-                data-package-manager={manager}
-                aria-selected={index === 0 ? "true" : "false"}
-                tabindex={index === 0 ? 0 : -1}
-              >
-                {manager}
-              </button>
-            ))
-          }
-        </div>
-        <pre data-install-command><code>{installCommands.npm}</code></pre>
+        <pre data-install-command><code># @irogane/kaji v0 is not yet published</code></pre>
       </div>
     </div>
 
@@ -109,38 +83,6 @@ const packageManagers = Object.keys(installCommands) as (keyof typeof installCom
   </section>
 </Base>
 
-<script>
-  const initPackageManagerTabs = () => {
-    const container = document.querySelector<HTMLElement>("[data-package-manager-tabs]");
-    if (!container) return;
-
-    const commandsAttribute = container.dataset.installCommands;
-    if (!commandsAttribute) return;
-
-    const commands = JSON.parse(commandsAttribute) as Record<string, string>;
-    const buttons = container.querySelectorAll<HTMLButtonElement>("[data-package-manager]");
-    const codeElement = container.querySelector<HTMLElement>("[data-install-command] code");
-    if (!codeElement) return;
-
-    const select = (manager: string) => {
-      const command = commands[manager];
-      if (command === undefined) return;
-
-      codeElement.textContent = command;
-      for (const button of buttons) {
-        const selected = button.dataset.packageManager === manager;
-        button.setAttribute("aria-selected", String(selected));
-        button.tabIndex = selected ? 0 : -1;
-      }
-    };
-
-    for (const button of buttons) {
-      button.addEventListener("click", () => select(button.dataset.packageManager ?? ""));
-    }
-  };
-
-  document.addEventListener("astro:page-load", initPackageManagerTabs);
-</script>
 
 <style>
   .entry-route {
@@ -305,9 +247,8 @@ const packageManagers = Object.keys(installCommands) as (keyof typeof installCom
   }
 
   /*
-   * The tab list renders as the frame's header row, inside the same
-   * bordered surface as the code panel below it, instead of as a separate
-   * row above a detached codeblock.
+   * The install notice renders as one bordered surface: the frame owns the
+   * single border instead of the notice sitting in a detached codeblock.
    */
   .entry-install-frame {
     width: 100%;
@@ -317,45 +258,12 @@ const packageManagers = Object.keys(installCommands) as (keyof typeof installCom
     background: var(--surface-muted);
   }
 
-  .entry-install-frame .tab-list {
-    display: flex;
-    column-gap: 1.25rem;
-    margin: 0;
-    /* Align tab labels with the command text below, which uses 1rem
-     * horizontal padding, so the two rows read as one surface. */
-    padding-inline: 1rem;
-    border-bottom: 1px solid var(--line-subtle);
-  }
-
-  .entry-install-frame .tab-list button {
-    border-radius: 0;
-    background: transparent;
-    padding: 0.55rem 0;
-    text-transform: none;
-  }
-
-  .entry-install-frame .tab-list button[aria-selected="true"] {
-    position: relative;
-    color: var(--heading-color);
-    background: transparent;
-  }
-
-  .entry-install-frame .tab-list button[aria-selected="true"]::after {
-    position: absolute;
-    right: 0;
-    bottom: -1px;
-    left: 0;
-    height: 1px;
-    background: var(--gunjo-iro);
-    content: "";
-  }
-
   .entry-install-frame [data-install-command] {
     margin: 0;
-    /* Tighter than the docs panels (0.875rem) and equal to the tab row's
-     * vertical padding: a one-line command does not need document-panel
-     * height, and header + panel read as one rhythm. !important is needed
-     * to beat .doc-content pre's !important shorthand. */
+    /* Tighter than the docs panels (0.875rem) and equal to the docs tab
+     * row's vertical rhythm: a one-line notice does not need document-panel
+     * height. !important is needed to beat .doc-content pre's !important
+     * shorthand. */
     padding: 0.55rem 1rem !important;
     border: 0;
     border-radius: 0;
