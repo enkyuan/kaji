@@ -102,7 +102,9 @@ mkdir /tmp/kaji-registry && cd /tmp/kaji-registry && npm init -y && npm pkg set 
 npm install @irogane/kaji            # rc: npm install @irogane/kaji@next
 node -e "import('@irogane/kaji').then(async m => {
   const kaji = m.createKaji({ store: m.memoryStore() });
-  const cap = m.capability({ name: 't', input: { parse: v => v },
+  const cap = m.capability({ name: 't',
+    input: { '~standard': { version: 1, vendor: 'smoke',
+      validate: v => ({ value: v }) } },
     authorize: () => true, execute: i => i });
   const r = await kaji.execute(cap, { idempotencyKey: 'k', principalId: 'p', input: 'x' });
   if (r.status !== 'succeeded') throw new Error(r.status);

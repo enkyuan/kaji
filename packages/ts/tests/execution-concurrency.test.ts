@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
 import { memoryStore } from "../src/store/memory.ts";
-import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
+import { baseRequest, refundSchema, type Refund } from "./execution-fixtures.ts";
 
 describe("concurrent identical requests", () => {
   it("begins the capability body exactly once for many concurrent calls", async () => {
     const execute = vi.fn(async (input: Refund) => ({ refunded: input.amount }));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -27,7 +27,7 @@ describe("concurrent identical requests", () => {
     const execute = vi.fn(async (input: Refund) => ({ refunded: input.amount }));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -50,7 +50,7 @@ describe("concurrent identical requests", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -70,7 +70,7 @@ describe("concurrent conflicting requests", () => {
     const execute = vi.fn(async (input: Refund) => ({ refunded: input.amount }));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });

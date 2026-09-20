@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
 import { memoryStore } from "../src/store/memory.ts";
-import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
+import { baseRequest, refundSchema, type Refund } from "./execution-fixtures.ts";
 
 describe("cancellation before execution", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -14,7 +14,7 @@ describe("cancellation before execution", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -35,7 +35,7 @@ describe("cancellation before execution", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => {
         controller.abort();
         return true;
@@ -57,7 +57,7 @@ describe("cancellation before execution", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       approval: () => {
         controller.abort();
@@ -77,7 +77,7 @@ describe("cancellation before execution", () => {
     const execute = vi.fn();
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => {
         vi.advanceTimersByTime(10);
         return true;
@@ -108,7 +108,7 @@ describe("cancellation after execution begins", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -137,7 +137,7 @@ describe("cancellation after execution begins", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -155,7 +155,7 @@ describe("cancellation after execution begins", () => {
     let seenSignal: AbortSignal | undefined;
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute: async (input, context) => {
         seenSignal = context.signal;
@@ -182,7 +182,7 @@ describe("timeout after execution begins", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -205,7 +205,7 @@ describe("timeout after execution begins", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -225,7 +225,7 @@ describe("timeout after execution begins", () => {
     const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute: async (input) => input,
     });
@@ -234,5 +234,57 @@ describe("timeout after execution begins", () => {
     await kaji.execute(refund, baseRequest());
 
     expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("cancellation during async validation", () => {
+  // Standard Schema validate() does not receive Kaji's AbortSignal, so a
+  // pending third-party validator cannot be cancelled. The required safety
+  // property: once the signal fires, a resolving validator still must not
+  // lead to claim, authorization, approval, or execution.
+  it("does not proceed to claim or execution when the signal fires during pending validation", async () => {
+    vi.useFakeTimers();
+    const store = memoryStore();
+    const claimSpy = vi.spyOn(store, "claim");
+    const recordSpy = vi.spyOn(store, "record");
+    const authorize = vi.fn(() => true);
+    const approval = vi.fn(() => true);
+    const execute = vi.fn();
+    const controller = new AbortController();
+    let resolveValidation!: () => void;
+
+    const refund = capability({
+      name: "payments.refund",
+      input: {
+        "~standard": {
+          version: 1 as const,
+          vendor: "test",
+          validate: (value: unknown) =>
+            new Promise<{ value: unknown }>((resolve) => {
+              resolveValidation = () => resolve({ value });
+            }),
+        },
+      },
+      authorize,
+      approval,
+      execute,
+    });
+    const kaji = createKaji({ store });
+
+    const pending = kaji.execute(refund, baseRequest({ signal: controller.signal }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    controller.abort();
+    resolveValidation();
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(result.status).toBe("cancelled");
+    expect(claimSpy).not.toHaveBeenCalled();
+    expect(recordSpy).not.toHaveBeenCalled();
+    expect(authorize).not.toHaveBeenCalled();
+    expect(approval).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { capability } from "../src/capability.ts";
 import { createKaji } from "../src/kaji.ts";
 import { memoryStore } from "../src/store/memory.ts";
-import { baseRequest, refundParser, type Refund } from "./execution-fixtures.ts";
+import { baseRequest, refundSchema, type Refund } from "./execution-fixtures.ts";
+import type { StandardSchemaV1 } from "../src/schema.ts";
 
 /**
  * A fake external action that commits its effect before it can acknowledge
@@ -28,7 +29,7 @@ describe("completed replay", () => {
     const execute = vi.fn(async (input: Refund) => ({ refunded: input.amount }));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -49,7 +50,7 @@ describe("completed replay", () => {
     const execute = vi.fn(async (input: Refund) => input);
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -85,7 +86,7 @@ describe("running duplicate", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -109,7 +110,7 @@ describe("conflicting duplicate", () => {
     const execute = vi.fn(async (input: Refund) => ({ refunded: input.amount }));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -143,7 +144,7 @@ describe("unknown duplicate", () => {
     const execute = vi.fn().mockRejectedValue(new Error("ambiguous"));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -163,7 +164,7 @@ describe("unknown duplicate", () => {
     const execute = vi.fn().mockRejectedValue(new Error("ambiguous"));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -187,7 +188,7 @@ describe("ambiguous side effect", () => {
     const execute = vi.fn(async (input: Refund) => gateway.refund(input.amount));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -209,7 +210,7 @@ describe("ambiguous side effect", () => {
     const execute = vi.fn(async (input: Refund) => gateway.refund(input.amount));
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -231,7 +232,7 @@ describe("ambiguous side effect", () => {
     });
     const refund = capability({
       name: "payments.refund",
-      input: refundParser,
+      input: refundSchema,
       authorize: () => true,
       execute,
     });
@@ -244,5 +245,51 @@ describe("ambiguous side effect", () => {
     await kaji.execute(refund, baseRequest());
 
     expect(commitCount).toBe(1);
+  });
+});
+
+describe("fingerprinting validated output", () => {
+  // The fingerprint must cover the schema's validated OUTPUT, not the raw
+  // request input: two raw inputs that transform to the same value claim
+  // the same operation and replay, while differently-transformed values
+  // would conflict.
+  it("replays when different raw inputs transform to the same validated output", async () => {
+    const store = memoryStore();
+    const execute = vi.fn(async (input: number) => ({ amount: input }));
+
+    const amount: StandardSchemaV1<string, number> = {
+      "~standard": {
+        version: 1,
+        vendor: "test",
+        validate: (value) => ({ value: Number(value) }),
+        types: { input: null as unknown as string, output: null as unknown as number },
+      },
+    };
+    const charge = capability({
+      name: "payments.charge",
+      input: amount,
+      authorize: () => true,
+      execute,
+    });
+    const kaji = createKaji({ store });
+
+    const first = await kaji.execute(charge, {
+      input: "10",
+      principalId: "user_1",
+      idempotencyKey: "key_1",
+    });
+    const second = await kaji.execute(charge, {
+      input: "10.0",
+      principalId: "user_1",
+      idempotencyKey: "key_1",
+    });
+
+    expect(first.status).toBe("succeeded");
+    expect(second.status).toBe("succeeded");
+    expect(execute).toHaveBeenCalledTimes(1);
+    if (first.status === "succeeded" && second.status === "succeeded") {
+      expect(second.evidence.executionId).toBe(first.evidence.executionId);
+      expect(second.result).toEqual(first.result);
+    }
   });
 });

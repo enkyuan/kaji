@@ -42,7 +42,14 @@ export async function executeCapability<Input, Result>(
       return cancelled(capability.name, principalId, idempotencyKey);
     }
 
-    const input = validateInput(definition.input, request.input);
+    // Standard Schema validation may be asynchronous. A third-party
+    // validator cannot be cancelled through Kaji's signal, so the signal
+    // is re-checked once validation settles: an aborted request must never
+    // proceed to fingerprinting, claiming, or execution.
+    const input = await validateInput(definition.input, request.input);
+    if (signal.aborted) {
+      return cancelled(capability.name, principalId, idempotencyKey);
+    }
     const inputFingerprint = fingerprintInput(capability.name, input);
 
     const claimResult = await claim(dependencies.store, {
