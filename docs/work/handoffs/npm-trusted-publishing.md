@@ -41,17 +41,18 @@ No long-lived npm publishing token.
   CLOUDFLARE_API_TOKEN reference is the gated docs deploy step).
 - npm local auth: none (npm whoami 401) — no local publish credential.
 
-## BLOCKERS (manual actions, in order)
+## BLOCKERS (manual actions)
 
-1. Merge PR #7. npm validates trusted-publisher workflows against the
-   default branch; publish.yml is not on main until this merges.
+1. RESOLVED: PR #7 merged 2026-09-20; main 15a6f65 contains publish.yml.
+   npm trusted-publisher validation against the default branch is now
+   possible. Merge-triggered Docs site and TypeScript package workflows
+   completed successfully.
 2. Environment branch policy: deployment_branch_policy is null (API
    returned 404 — token lacks the administration scope for
-   deployment-branch-policies). Set via UI: Settings → Environments →
-   npm-release → Deployment branches and tags → Selected branches and tags
-   → `main`. Or: gh api -X POST
-   repos/enkyuan/kaji/environments/npm-release/deployment-branch-policies
-   -f name=main (with an admin token).
+   deployment-branch-policies; retried after environment creation and
+   again after the PR #7 merge). Set via UI: Settings → Environments →
+   npm-release → Deployment branches and tags → Selected branches and
+   tags → `main`.
 3. npm trusted publisher (npmjs.com → @irogane/kaji → Settings →
    Trusted Publisher, requires npm login): GitHub Actions, repository
    enkyuan/kaji, workflow filename publish.yml, environment npm-release.
