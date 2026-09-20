@@ -7,11 +7,17 @@ Kaji is a TypeScript library published as `@irogane/kaji`. This tutorial
 defines one capability and executes it with the in-memory execution store,
 the same shape as `examples/refund` in the repository.
 
+import InstallTabs from "../src/components/content/install-tabs.astro";
+
 ## Install
 
-```bash
-npm install @irogane/kaji
-```
+<InstallTabs
+  commands={{
+    npm: "npm install @irogane/kaji",
+    bun: "bun add @irogane/kaji",
+    pnpm: "pnpm add @irogane/kaji",
+  }}
+/>
 
 Kaji has zero runtime dependencies and runs in your process — no server,
 database, or control plane. Kaji does not require or declare a schema
@@ -19,9 +25,7 @@ library as a dependency. `input` only needs a `parse(input: unknown)`
 method that returns validated input or throws — this example uses Zod,
 but any library with that shape works.
 
-```bash
-npm install zod
-```
+<InstallTabs commands={{ npm: "npm install zod", bun: "bun add zod", pnpm: "pnpm add zod" }} />
 
 ## First run
 

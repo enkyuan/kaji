@@ -1,9 +1,16 @@
 ---
 import figlet from "figlet";
 import Base from "@/layouts/base.astro";
+import InstallTabs from "@/components/content/install-tabs.astro";
 
 const wordmark = figlet.textSync("KAJI", { font: "Alligator" });
 const wordmarkColumns = Math.max(...wordmark.split("\n").map((line) => line.length));
+
+const installCommands = {
+  npm: "npm install @irogane/kaji",
+  bun: "bun add @irogane/kaji",
+  pnpm: "pnpm add @irogane/kaji",
+} as const;
 ---
 
 <Base title="Kaji" description="Kaji is the execution layer for agents." activeHref="/" shell="standalone">
@@ -67,7 +74,7 @@ const wordmarkColumns = Math.max(...wordmark.split("\n").map((line) => line.leng
 
     <div class="entry-install doc-content">
       <div class="entry-install-frame">
-        <pre data-install-command><code>npm install @irogane/kaji</code></pre>
+        <InstallTabs commands={installCommands} />
       </div>
     </div>
 
@@ -75,12 +82,9 @@ const wordmarkColumns = Math.max(...wordmark.split("\n").map((line) => line.leng
       <a class="entry-button" href="https://github.com/enkyuan/kaji" target="_blank" rel="noopener noreferrer">
         github
       </a>
+      <a class="entry-button" href="/introduction">docs</a>
       <a class="entry-button" href="https://www.npmjs.com/package/@irogane/kaji" target="_blank" rel="noopener noreferrer">
         npm
-      </a>
-      <a class="entry-button" href="/introduction">docs</a>
-      <a class="entry-button" href="https://github.com/enkyuan/kaji" target="_blank" rel="noopener noreferrer">
-        star
       </a>
     </div>
   </section>
@@ -261,7 +265,9 @@ const wordmarkColumns = Math.max(...wordmark.split("\n").map((line) => line.leng
     background: var(--surface-muted);
   }
 
-  .entry-install-frame [data-install-command] {
+  /* The command line now renders inside <InstallTabs> (a child component),
+   * so :global is required for this scoped stylesheet to reach it. */
+  .entry-install-frame :global([data-install-command]) {
     margin: 0;
     /* Tighter than the docs panels (0.875rem) and equal to the docs tab
      * row's vertical rhythm: a one-line notice does not need document-panel

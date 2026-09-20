@@ -1,0 +1,137 @@
+---
+/**
+ * Package-manager install tabs with page-scoped shared selection.
+ *
+ * Every `<InstallTabs>` on one page shows the same manager: clicking a tab
+ * in any instance switches all instances on that page (so a Getting Started
+ * page with a `@irogane/kaji` install and a `zod` install stays consistent),
+ * while different pages keep independent selections. The first entry of
+ * `commands` is the server-rendered default, so the command is truthful
+ * without JavaScript.
+ */
+interface Props {
+  commands: Record<string, string>;
+  label?: string;
+}
+
+const { commands, label = "Package manager" } = Astro.props;
+const managers = Object.keys(commands);
+---
+
+<div
+  class="install-tabs"
+  data-package-manager-tabs
+  data-install-commands={JSON.stringify(commands)}
+>
+  <div class="tab-list" role="tablist" aria-label={label}>
+    {
+      managers.map((manager, index) => (
+        <button
+          type="button"
+          role="tab"
+          data-package-manager={manager}
+          aria-selected={index === 0 ? "true" : "false"}
+          tabindex={index === 0 ? 0 : -1}
+        >
+          {manager}
+        </button>
+      ))
+    }
+  </div>
+  <pre data-install-command><code>{commands[managers[0]]}</code></pre>
+</div>
+
+<script>
+  // Selection is page-scoped: one click syncs every [data-package-manager-tabs]
+  // container on the current page. The listener survives Astro view-transition
+  // swaps (module scripts run once); containers are re-queried on each
+  // astro:page-load because the DOM is replaced wholesale.
+  const initPackageManagerTabs = () => {
+    const containers = [
+      ...document.querySelectorAll<HTMLElement>("[data-package-manager-tabs]"),
+    ];
+    if (containers.length === 0) return;
+
+    const selectEverywhere = (manager: string) => {
+      for (const container of containers) {
+        let commands: Record<string, string> = {};
+        try {
+          commands = JSON.parse(container.dataset.installCommands ?? "{}");
+        } catch {
+          continue;
+        }
+        const code = container.querySelector<HTMLElement>("[data-install-command] code");
+        if (code !== null && commands[manager] !== undefined) {
+          code.textContent = commands[manager];
+        }
+        for (const button of container.querySelectorAll<HTMLButtonElement>(
+          "[data-package-manager]",
+        )) {
+          const selected = button.dataset.packageManager === manager;
+          button.setAttribute("aria-selected", String(selected));
+          button.tabIndex = selected ? 0 : -1;
+        }
+      }
+    };
+
+    for (const container of containers) {
+      const buttons = [
+        ...container.querySelectorAll<HTMLButtonElement>("[data-package-manager]"),
+      ];
+      for (const button of buttons) {
+        button.addEventListener("click", () =>
+          selectEverywhere(button.dataset.packageManager ?? ""),
+        );
+        button.addEventListener("keydown", (event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          const index = buttons.indexOf(button);
+          const delta = event.key === "ArrowRight" ? 1 : -1;
+          const next = buttons[(index + delta + buttons.length) % buttons.length];
+          next.focus();
+          selectEverywhere(next.dataset.packageManager ?? "");
+        });
+      }
+    }
+  };
+
+  document.addEventListener("astro:page-load", initPackageManagerTabs);
+</script>
+
+<style>
+  .install-tabs {
+    width: 100%;
+  }
+
+  /* Align tab labels with the command text below, which uses 1rem
+   * horizontal padding, so the two rows read as one surface. */
+  .tab-list {
+    display: flex;
+    column-gap: 1.25rem;
+    margin: 0;
+    padding-inline: 1rem;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .tab-list button {
+    border-radius: 0;
+    background: transparent;
+    padding: 0.55rem 0;
+    text-transform: none;
+  }
+
+  .tab-list button[aria-selected="true"] {
+    position: relative;
+    color: var(--heading-color);
+    background: transparent;
+  }
+
+  .tab-list button[aria-selected="true"]::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 1px;
+    background: var(--gunjo-iro);
+    content: "";
+  }
+</style>
