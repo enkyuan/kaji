@@ -203,17 +203,15 @@ const packageManagers = Object.keys(installCommands) as (keyof typeof installCom
 
   /* Blur and opacity ease out together for the whole duration instead of
    * holding blur flat at the end (that hold read as a stutter, not a
-   * fade). A slight scale keeps the exit from feeling like a flat cut. */
+   * fade). The centered base transform stays fixed throughout the exit. */
   @keyframes entry-wordmark-exit {
     from {
       filter: blur(0);
       opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
     }
     to {
       filter: blur(6px);
       opacity: 0;
-      transform: translate(-50%, -50%) scale(1.02);
     }
   }
 
@@ -228,7 +226,7 @@ const packageManagers = Object.keys(installCommands) as (keyof typeof installCom
 
   :global(html[data-entry-play]) .entry-wordmark {
     animation: entry-wordmark-exit 480ms 200ms both var(--ease-out);
-    will-change: opacity, filter, transform;
+    will-change: opacity, filter;
   }
 
   :global(html[data-entry-intro]) .entry-definition,
