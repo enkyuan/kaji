@@ -11,6 +11,12 @@ const installCommands = {
   bun: "bun add @irogane/kaji",
   pnpm: "pnpm add @irogane/kaji",
 } as const;
+
+const zodCommands = {
+  npm: "npm install zod",
+  bun: "bun add zod",
+  pnpm: "pnpm add zod",
+} as const;
 ---
 
 <Base title="Kaji" description="Kaji is the execution layer for agents." activeHref="/" shell="standalone">
@@ -75,6 +81,9 @@ const installCommands = {
     <div class="entry-install doc-content">
       <div class="entry-install-frame">
         <InstallTabs commands={installCommands} />
+      </div>
+      <div class="entry-install-frame">
+        <InstallTabs commands={zodCommands} label="Zod package manager" />
       </div>
     </div>
 
@@ -250,6 +259,7 @@ const installCommands = {
   .entry-install {
     display: grid;
     width: 100%;
+    gap: 0.5rem;
     animation-delay: 760ms;
   }
 
