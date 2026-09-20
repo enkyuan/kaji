@@ -33,13 +33,15 @@ const standalone = shell === "standalone";
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <meta name="theme-color" content="oklch(0.194 0.006 55.987)" />
-    <link rel="icon" type="image/png" href="/favicon/favicon-196x196.png" sizes="196x196" />
-    <link rel="icon" type="image/png" href="/favicon/favicon-96x96.png" sizes="96x96" />
-    <link rel="icon" type="image/png" href="/favicon/favicon-32x32.png" sizes="32x32" />
-    <link rel="icon" type="image/png" href="/favicon/favicon-16x16.png" sizes="16x16" />
-    <link rel="icon" type="image/png" href="/favicon/favicon-128x128.png" sizes="128x128" />
-    <!-- favicon.ico lives at the site root (no link tag): Safari and legacy
-     * browsers fetch it by convention, modern browsers use the PNG links. -->
+    <link rel="icon" href="/favicon.ico?v=1" sizes="any" />
+    <link rel="icon" type="image/png" href="/favicon/favicon-196x196.png?v=1" sizes="196x196" />
+    <link rel="icon" type="image/png" href="/favicon/favicon-96x96.png?v=1" sizes="96x96" />
+    <link rel="icon" type="image/png" href="/favicon/favicon-32x32.png?v=1" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon/favicon-16x16.png?v=1" sizes="16x16" />
+    <link rel="icon" type="image/png" href="/favicon/favicon-128x128.png?v=1" sizes="128x128" />
+    <!-- Explicitly link the root ICO for Safari and legacy tab discovery.
+     * The versioned URLs bypass the failed icon response cached before the
+     * custom domain became active. -->
     <link rel="mask-icon" href="/logo.svg" color="#f8674f" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="apple-touch-icon-precomposed" sizes="57x57" href="/favicon/apple-touch-icon-57x57.png" />
