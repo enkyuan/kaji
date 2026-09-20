@@ -1,8 +1,8 @@
 # Active work
 
-Goal: Complete the @irogane/kaji release train and public installation affordances.
-Reference: docs/work/handoffs/npm-live.md
+Goal: Source organization refactor and install UI restoration for @irogane/kaji.
+Reference: docs/work/handoffs/source-organization.md, docs/work/handoffs/install-tabs.md
 Owner: release
-State: DONE — 0.3.0 on latest, rc.1 on next, install UI live on kaji.build, auto-deploy proven (2026-09-20)
+State: DONE — responsibility-based source tree merged (PR #19, AGENTS.md codified); tabbed install UI live (PR #20, auto-deployed); remote has only main
 Started: 2026-09-20
-Exit condition: stable public + docs installation UI live + auto-deploy verified — MET. Remaining: user npm-auth cleanups (deprecate old beta, dist-tag hygiene). Next: normal development.
+Exit condition: refactor merged with unchanged API/behavior; tabs live and verified — MET. Next: normal development.
