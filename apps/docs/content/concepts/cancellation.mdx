@@ -1,36 +1,44 @@
 ---
-title: Timeout
-description: "Native `AbortSignal` is used for cooperative cancellation; a timeout means Kaji stopped waiting, not that a side effect was rolled back."
+title: Timeout and cancellation
+description: Use `AbortSignal` for cooperative cancellation without assuming rollback or forced termination.
 ---
 
-Kaji uses the platform's native `AbortSignal` instead of a Kaji-specific
-cancellation token. A capability's `execute` function receives the
-effective signal on its `ExecutionContext` and must check it cooperatively
-wherever the underlying operation supports cancellation.
+Kaji uses the platform `AbortSignal`. It does not add a custom cancellation token.
+
+A capability receives the effective signal through `ExecutionContext`:
 
 ```ts
 execute: async (input, context) => {
-  return refundPayment({
-    ...input,
+  return provider.refund(input, {
     idempotencyKey: context.idempotencyKey,
     signal: context.signal,
   });
 },
 ```
 
-## Checkpoints
+## Before capability execution
 
-The executor checks the effective signal before every step that hasn't yet
-started a side effect: before claiming the idempotency key, before
-authorization, and before approval. If the signal is already aborted at any
-of those points, the request settles `cancelled` and `execute` never runs.
+Kaji checks the signal before these steps:
 
-Once `execute` has been called, cancellation can no longer prevent the
-action — it can only ask the capability to stop cooperating. A signal that
-aborts while `execute` is running does not imply the side effect was rolled
-back or didn't happen; Kaji cannot force hostile or uncooperative
-application code to stop, and a remote system can complete its work after
-Kaji stops waiting.
+1. input validation
+2. the store claim
+3. authorization
+4. approval
+5. capability execution
+
+When the signal is already aborted at one of these checks, Kaji returns `cancelled`. It does not call the capability.
+
+Cancellation before the store claim has no execution record. Cancellation after the claim is recorded when the store remains available.
+
+## After capability execution begins
+
+After Kaji calls `execute()`, cancellation is cooperative. Kaji cannot forcibly terminate application code or a remote request.
+
+The capability or downstream API must observe `context.signal` for cancellation to interrupt work.
+
+If `execute()` rejects after the signal aborts, Kaji returns `unknown`. The side effect can commit before the rejection reaches Kaji.
+
+If `execute()` ignores the signal and later resolves, Kaji can return `succeeded`.
 
 ## `timeoutMs`
 
@@ -41,28 +49,29 @@ const kaji = createKaji({
 });
 ```
 
-`timeoutMs` combines with any caller-supplied `signal` into one effective
-signal using `AbortSignal.any()` — both are native primitives, with no
-Kaji-specific equivalent layered on top. When the timeout elapses, Kaji
-aborts that signal exactly the way it would abort on caller-initiated
-cancellation.
+`timeoutMs` aborts the effective signal after the configured duration.
 
-A timeout means Kaji stopped waiting — nothing more. It is not proof that a
-remote side effect didn't happen, and Kaji never automatically retries a
-timed-out execution as though it never started.
+When the caller also supplies a signal, Kaji combines both signals with `AbortSignal.any()`. The first signal to abort controls the effective signal.
 
-## Why Unknown
+Kaji continues awaiting `execute()` until it settles. Therefore, `timeoutMs` does not bound the wall-clock duration of capability execution.
 
-If `execute` has already been called when the effective signal aborts, the
-resulting failure settles `unknown`, not `cancelled` or an ordinary
-`failed`. Kaji cannot distinguish "the side effect never started" from "the
-side effect committed and the acknowledgement was lost" once the boundary
-into application code has been crossed — so it preserves that ambiguity
-instead of guessing. See [Execution](/docs/concepts/executor) for the
-full outcome contract.
+A timeout does not prove rollback. It does not prove that a remote operation stopped or failed.
 
-## Further Reading
+## Handle an abort
+
+Pass `context.signal` to downstream APIs that support cancellation. For custom work, check the signal at safe points.
+
+```ts
+execute: async (input, context) => {
+  context.signal.throwIfAborted();
+  return provider.refund(input, { signal: context.signal });
+},
+```
+
+Do not convert a post-start abort into `knownFailure()` unless application code proves that no side effect committed.
+
+## Related guides
 
 - [Execution](/docs/concepts/executor)
-- [Idempotency](/docs/concepts/idempotency) — how a
-  retried `unknown` execution avoids re-running the side effect
+- [Outcomes](/docs/concepts/outcomes)
+- [Idempotency](/docs/concepts/idempotency)

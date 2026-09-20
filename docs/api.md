@@ -50,11 +50,20 @@ export type Capability<Input, Result> = {
 };
 
 export function capability<Input, Result>(definition: {
-  name: string;
-  input: { parse(input: unknown): Input };
-  authorize: (request: { principalId: string; input: Input }) => boolean | Promise<boolean>;
-  approval?: (request: { principalId: string; input: Input }) => boolean;
-  execute: (input: Input, context: ExecutionContext) => Result | Promise<Result>;
+  readonly name: string;
+  readonly input: { parse(input: unknown): Input };
+  readonly authorize: (request: {
+    readonly principalId: string;
+    readonly input: Input;
+  }) => boolean | Promise<boolean>;
+  readonly approval?: (request: {
+    readonly principalId: string;
+    readonly input: Input;
+  }) => boolean;
+  readonly execute: (
+    input: Input,
+    context: ExecutionContext,
+  ) => Result | Promise<Result>;
 }): Capability<Input, Result>;
 ```
 
@@ -71,42 +80,41 @@ export function capability<Input, Result>(definition: {
 `createKaji()` creates the executor. The executor owns the canonical execution path: validate, claim idempotency, authorize, obtain approval when needed, execute, and record the explicit outcome.
 
 ```ts
-export type Kaji = {
+export function createKaji(options: {
+  readonly store: ExecutionStore;
+  readonly approve?: (request: {
+    readonly capability: string;
+    readonly principalId: string;
+    readonly input: unknown;
+    readonly idempotencyKey: string;
+  }) =>
+    | { readonly approved: boolean; readonly evidence?: unknown }
+    | Promise<{ readonly approved: boolean; readonly evidence?: unknown }>;
+  readonly timeoutMs?: number;
+}): {
   execute<Input, Result>(
     capability: Capability<Input, Result>,
     request: ExecutionRequest,
   ): Promise<ExecutionResult<Result>>;
 };
-
-export function createKaji(options: {
-  store: ExecutionStore;
-  approve?: (request: {
-    capability: string;
-    principalId: string;
-    input: unknown;
-    idempotencyKey: string;
-  }) =>
-    { approved: boolean; evidence?: unknown } | Promise<{ approved: boolean; evidence?: unknown }>;
-  timeoutMs?: number;
-}): Kaji;
 ```
 
-`timeoutMs` sets the maximum time Kaji waits for an execution. It does not roll back an effect or prove that a remote operation did not occur. Kaji aborts its execution signal when the timeout elapses.
+`timeoutMs` aborts the execution's effective `AbortSignal` after the configured duration. Cancellation is cooperative. Kaji continues awaiting `execute()` until it settles, so capability code and downstream APIs must observe `context.signal` for the timeout to interrupt work. The timeout does not roll back a side effect or bound the wall-clock duration of `execute()`.
 
 ## Execution request and context
 
 ```ts
 export type ExecutionRequest = {
-  input: unknown;
-  principalId: string;
-  idempotencyKey: string;
-  signal?: AbortSignal;
+  readonly input: unknown;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly signal?: AbortSignal;
 };
 
 export type ExecutionContext = {
-  principalId: string;
-  idempotencyKey: string;
-  signal: AbortSignal;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly signal: AbortSignal;
 };
 ```
 
@@ -116,51 +124,55 @@ The context signal combines the caller signal and Kaji's optional timeout. It fo
 
 ## Approval
 
-The application supplies `approve` when any capability can require approval. Kaji passes the capability name, principal ID, validated input, and idempotency key. An absent approver, an invalid decision, a rejected decision, or an approver error prevents execution. The optional approval evidence may be retained in the execution record.
+The application supplies `approve` when any capability can require approval. Kaji passes the capability name, principal ID, validated input, and idempotency key. An absent approver, an invalid decision, a rejected decision, or an approver error prevents execution. The handler can return optional evidence, but Kaji does not expose or persist it. The application approval system must retain any required audit evidence.
 
 ## Results and outcomes
 
-`execute()` resolves with an explicit result for every governed execution. It does not throw for expected execution outcomes. It may reject only when Kaji cannot establish the execution boundary, such as an invalid executor configuration or an unrecoverable store error before an execution record exists.
+`execute()` resolves expected execution outcomes as explicit results. It can reject before Kaji establishes the execution boundary.
+
+Examples include invalid request metadata, invalid capability input, and a store claim failure.
 
 ```ts
 export type ExecutionResult<Result> =
   | {
-      status: "succeeded";
-      result: Result;
-      evidence: ExecutionEvidence;
+      readonly status: "succeeded";
+      readonly result: Result;
+      readonly evidence: ExecutionEvidence;
     }
   | {
-      status: "denied" | "rejected" | "failed" | "cancelled";
-      error: unknown;
-      evidence: ExecutionEvidence;
+      readonly status: "denied" | "rejected" | "failed" | "cancelled";
+      readonly error: unknown;
+      readonly evidence: ExecutionEvidence;
     }
   | {
-      status: "unknown";
-      error: unknown;
-      evidence: ExecutionEvidence;
+      readonly status: "unknown";
+      readonly error: unknown;
+      readonly evidence: ExecutionEvidence;
     };
 
 export type ExecutionEvidence = {
-  executionId: string;
-  capability: string;
-  principalId: string;
-  idempotencyKey: string;
-  inputFingerprint: string;
+  readonly executionId: string;
+  readonly capability: string;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly inputFingerprint: string;
 };
 ```
 
 - `succeeded` means `execute` returned successfully.
 - `denied` means authorization did not allow the action.
 - `rejected` means required approval was unavailable or not granted.
-- `failed` means Kaji knows the action did not start or did not succeed.
+- `failed` means Kaji has a definitive failure for the governed request. Current cases include an idempotency conflict and an explicit `knownFailure()` from capability execution.
 - `cancelled` means cancellation prevented side-effect execution.
-- `unknown` means a side effect may have happened but Kaji cannot prove completion. A timeout or cancellation after `execute` begins produces `unknown`. Callers must not blindly retry `unknown`.
+- `unknown` means Kaji cannot confirm the intended terminal result. A side effect can already have committed. If `execute` rejects after a timeout or cancellation, the result is `unknown`. Callers must not blindly retry `unknown`.
 
-Kaji treats a thrown or rejected `execute` call as `unknown` by default. Only application code knows whether its own side effect may have committed, so this safe default prevents Kaji from misclassifying an ambiguous failure as an ordinary retryable failure.
+`failed` does not state whether the error is retryable, permanent, or part of a specific error category. Application policy must make those decisions.
+
+Kaji treats a thrown or rejected `execute` call as `unknown` by default. Only application code knows whether its side effect can commit before an error surfaces. This default prevents Kaji from treating ambiguity as a retryable failure.
 
 ## Known failure
 
-`knownFailure(cause)` is the one explicit exception to that default. A capability's `execute` function throws it to assert that a specific failure is definitively known — no ambiguous side effect remains — so Kaji settles `failed` instead of `unknown`.
+For errors from capability execution, `knownFailure(cause)` is the explicit exception to the `unknown` default. A capability's `execute` function throws it only when application code proves that no side effect committed. Kaji then settles `failed` instead of `unknown`.
 
 ```ts
 export function knownFailure(cause: unknown): Error;
@@ -171,34 +183,40 @@ execute: async (input, context) => {
   try {
     return await provider.charge(input);
   } catch (cause) {
-    if (isDefinitelyDeclined(cause)) throw knownFailure(cause);
+    if (providerRejectedBeforeCommit(cause)) throw knownFailure(cause);
     throw cause; // stays unknown: the side effect may have committed
   }
 },
 ```
 
-`knownFailure()` only wraps `cause` for Kaji to recognize; it does not change what the underlying error means. Kaji never infers this classification from an error's class, message, or status code — only application code that can actually prove no side effect committed may throw `knownFailure()`. Every other thrown or rejected `execute` call, including an unrecognized error, still settles `unknown`.
+`knownFailure()` only wraps `cause` for Kaji to recognize. It does not change the meaning of the underlying error.
 
-A repeated execution with the same idempotency key and input fingerprint returns the recorded result. Reuse of an idempotency key with different input, capability, or principal must return a conflict as a `failed` result. A concurrent duplicate waits for or receives the same recorded outcome; it must not run `execute` again.
+Kaji never infers this classification from an error class, message, or status code. Only application code that proves no side effect committed can throw `knownFailure()`.
+
+Every other thrown or rejected `execute` call settles `unknown`.
+
+A repeated execution with the same capability, principal ID, idempotency key, and input fingerprint returns the recorded result. Reuse of that capability, principal ID, and idempotency key with a different validated input fingerprint returns a conflict as a `failed` result. The same idempotency key can identify separate executions under a different capability or principal. A concurrent duplicate waits for or receives the same recorded outcome. It must not run `execute` again.
 
 ## Execution store
 
-The store persists execution identity, idempotency claims, input fingerprints, outcomes, and minimal result or error evidence. Its claim operation must be atomic enough to prevent duplicate execution for the same operation.
+The store tracks execution identity, idempotency claims, input fingerprints, outcomes, and minimal result or error evidence.
+
+Its claim operation must prevent duplicate execution for the same operation under concurrency.
 
 ```ts
 export type ExecutionClaim = {
-  capability: string;
-  principalId: string;
-  idempotencyKey: string;
-  inputFingerprint: string;
+  readonly capability: string;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly inputFingerprint: string;
 };
 
 export type StoredExecution = ExecutionResult<unknown>;
 
 export type ClaimResult =
-  | { status: "claimed"; executionId: string }
-  | { status: "existing"; outcome: Promise<StoredExecution> }
-  | { status: "conflict"; executionId: string };
+  | { readonly status: "claimed"; readonly executionId: string }
+  | { readonly status: "existing"; readonly outcome: Promise<StoredExecution> }
+  | { readonly status: "conflict"; readonly executionId: string };
 
 export type ExecutionStore = {
   claim(claim: ExecutionClaim): Promise<ClaimResult>;
@@ -208,7 +226,7 @@ export type ExecutionStore = {
 export function memoryStore(): ExecutionStore;
 ```
 
-`ExecutionClaim`, `ClaimResult`, and `StoredExecution` are public only because custom stores must implement the contract. `claim()` atomically creates a claim, returns the outcome of an identical completed or active claim, or reports a conflicting key reuse. The in-memory store is process-local and is the only v0 implementation.
+`ExecutionClaim`, `ClaimResult`, and `StoredExecution` are public only because custom stores must implement the contract. `claim()` atomically creates a claim, returns the outcome promise for an identical active or settled claim, or reports conflicting reuse. The in-memory store is process-local and is the only v0 implementation.
 
 Kaji does not provide a database store, distributed lock, event stream, retry system, or recovery worker in v0.
 

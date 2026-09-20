@@ -1,0 +1,216 @@
+---
+title: API reference
+description: Review every public function and type exported by `@irogane/kaji`.
+---
+
+`@irogane/kaji` has one package entry point.
+
+```ts
+import {
+  capability,
+  createKaji,
+  knownFailure,
+  memoryStore,
+  type Capability,
+  type ClaimResult,
+  type ExecutionClaim,
+  type ExecutionContext,
+  type ExecutionEvidence,
+  type ExecutionRequest,
+  type ExecutionResult,
+  type ExecutionStore,
+  type StoredExecution,
+} from "@irogane/kaji";
+```
+
+## `capability()`
+
+Defines one named application action.
+
+```ts
+function capability<Input, Result>(definition: {
+  readonly name: string;
+  readonly input: { parse(input: unknown): Input };
+  readonly authorize: (request: {
+    readonly principalId: string;
+    readonly input: Input;
+  }) => boolean | Promise<boolean>;
+  readonly approval?: (request: { readonly principalId: string; readonly input: Input }) => boolean;
+  readonly execute: (input: Input, context: ExecutionContext) => Result | Promise<Result>;
+}): Capability<Input, Result>;
+```
+
+`input.parse()` returns validated input or throws. Kaji does not require a specific schema library.
+
+`authorize` and `approval` receive validated input. Callers use the Kaji executor to invoke `execute`.
+
+## `Capability`
+
+```ts
+export type Capability<Input, Result> = {
+  readonly name: string;
+};
+```
+
+The generic parameters preserve the input and result types for `kaji.execute()`.
+
+## `createKaji()`
+
+Creates one executor with stable application configuration.
+
+```ts
+function createKaji(options: {
+  readonly store: ExecutionStore;
+  readonly approve?: (request: {
+    readonly capability: string;
+    readonly principalId: string;
+    readonly input: unknown;
+    readonly idempotencyKey: string;
+  }) =>
+    | { readonly approved: boolean; readonly evidence?: unknown }
+    | Promise<{ readonly approved: boolean; readonly evidence?: unknown }>;
+  readonly timeoutMs?: number;
+}): {
+  execute<Input, Result>(
+    capability: Capability<Input, Result>,
+    request: ExecutionRequest,
+  ): Promise<ExecutionResult<Result>>;
+};
+```
+
+`timeoutMs` aborts the effective execution signal after the configured duration. Kaji still awaits `execute()` until it settles.
+
+The `approve` handler can return optional evidence. Kaji accepts this field but does not expose or persist it in `@irogane/kaji@0.3.1`.
+
+## `ExecutionRequest`
+
+```ts
+export type ExecutionRequest = {
+  readonly input: unknown;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly signal?: AbortSignal;
+};
+```
+
+The caller supplies every field. `principalId` and `idempotencyKey` must be non-empty strings.
+
+## `ExecutionContext`
+
+```ts
+export type ExecutionContext = {
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly signal: AbortSignal;
+};
+```
+
+Kaji passes this value to the capability `execute` function.
+
+The signal combines the caller signal with the optional timeout signal. Cancellation is cooperative.
+
+## `ExecutionResult`
+
+```ts
+export type ExecutionResult<Result> =
+  | {
+      readonly status: "succeeded";
+      readonly result: Result;
+      readonly evidence: ExecutionEvidence;
+    }
+  | {
+      readonly status: "denied" | "rejected" | "failed" | "cancelled";
+      readonly error: unknown;
+      readonly evidence: ExecutionEvidence;
+    }
+  | {
+      readonly status: "unknown";
+      readonly error: unknown;
+      readonly evidence: ExecutionEvidence;
+    };
+```
+
+Read [Outcomes](/docs/concepts/outcomes) before you define retry behavior.
+
+## `ExecutionEvidence`
+
+```ts
+export type ExecutionEvidence = {
+  readonly executionId: string;
+  readonly capability: string;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly inputFingerprint: string;
+};
+```
+
+This is minimal execution evidence. It is not a business audit record.
+
+A pre-claim `cancelled` result has empty `executionId` and `inputFingerprint` values because no claim exists.
+
+## `knownFailure()`
+
+```ts
+function knownFailure(cause: unknown): Error;
+```
+
+Throw this value from capability execution only when application code proves that no side effect committed.
+
+Kaji then returns `status: "failed"`. Other thrown or rejected capability executions return `status: "unknown"`.
+
+## `ExecutionClaim`
+
+```ts
+export type ExecutionClaim = {
+  readonly capability: string;
+  readonly principalId: string;
+  readonly idempotencyKey: string;
+  readonly inputFingerprint: string;
+};
+```
+
+The execution identity is the capability, principal ID, and idempotency key. The fingerprint detects different validated input under that identity.
+
+## `ClaimResult`
+
+```ts
+export type ClaimResult =
+  | { readonly status: "claimed"; readonly executionId: string }
+  | { readonly status: "existing"; readonly outcome: Promise<StoredExecution> }
+  | { readonly status: "conflict"; readonly executionId: string };
+```
+
+`existing` covers active and settled claims. The promise resolves when the store records the outcome.
+
+## `StoredExecution`
+
+```ts
+export type StoredExecution = ExecutionResult<unknown>;
+```
+
+A store records one terminal result for each claimed execution.
+
+## `ExecutionStore`
+
+```ts
+export type ExecutionStore = {
+  claim(claim: ExecutionClaim): Promise<ClaimResult>;
+  record(execution: StoredExecution): Promise<void>;
+};
+```
+
+`claim()` must coordinate concurrent callers for the same execution identity.
+
+`record()` must preserve the terminal outcome. Read [Stores](/docs/concepts/stores) for the complete contract.
+
+## `memoryStore()`
+
+```ts
+function memoryStore(): ExecutionStore;
+```
+
+Returns a process-local reference store. It has no persistence, cross-process visibility, or restart durability.
+
+## Public export boundary
+
+The package exports only the functions and types shown on this page. It does not export framework adapters or implementation internals.

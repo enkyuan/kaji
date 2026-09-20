@@ -1,64 +1,78 @@
 ---
 title: Approval
-description: A capability marks which requests need a decision; the executor enforces that no such request executes without one.
+description: Require an application decision before selected capability executions.
 ---
 
-Some actions need a human (or another authority) to sign off before they
-run — a refund above a threshold, a destructive operation, a send to an
-external party. A capability's optional `approval` hook marks which
-requests need that decision; the executor enforces it.
+Approval adds an application-owned decision between authorization and capability execution.
+
+Kaji does not provide an approval interface, identity system, inbox, policy engine, or notification service.
+
+## Mark requests that need approval
+
+Add an `approval` predicate to the capability:
 
 ```ts
-const refund = capability({
+const refundPayment = capability({
   name: "payments.refund",
   input: RefundInput,
-  authorize: async ({ principalId, input }) => canRefund(principalId, input.paymentId),
-  approval: ({ input }) => input.amount >= 500,
-  execute: async (input, context) => refundPayment(input, context),
-});
-
-const kaji = createKaji({
-  store: memoryStore(),
-  approve: async (request) => requestHumanApproval(request),
+  authorize: ({ principalId, input }) => canRefund(principalId, input),
+  approval: ({ input }) => input.amount >= 1_000,
+  execute: refundThroughProvider,
 });
 ```
 
-`approval` receives the validated input and principal, and returns a plain
-boolean — it decides _whether_ approval is required for this specific
-request, not how the decision is made. `approve`, configured once on the
-executor, decides _how_: it receives the capability name, principal ID,
-validated input, and idempotency key, and returns (or rejects with) an
-approval decision.
+The predicate receives validated input and `principalId`. It returns `true` or `false` synchronously.
+
+When the predicate returns `false`, Kaji continues without an approval request.
+
+## Supply the approval handler
+
+Configure `approve` on the executor:
 
 ```ts
-type ApprovalDecision = { approved: boolean; evidence?: unknown };
-
-type ApproveHandler = (request: {
-  capability: string;
-  principalId: string;
-  input: unknown;
-  idempotencyKey: string;
-}) => ApprovalDecision | Promise<ApprovalDecision>;
+const kaji = createKaji({
+  store,
+  approve: async ({ capability, principalId, input, idempotencyKey }) => {
+    return approvalService.request({
+      capability,
+      principalId,
+      input,
+      idempotencyKey,
+    });
+  },
+});
 ```
 
-## Fail-Closed
+The handler returns:
 
-Approval is fail-closed: Kaji only proceeds past an `approval: true` request
-on an explicit `{ approved: true }`. Every other case settles `rejected`
-instead of running `execute`:
+```ts
+{
+  approved: boolean;
+  evidence?: unknown;
+}
+```
 
-- no `approve` handler was configured on the executor,
-- `approve` returned something other than `{ approved: boolean }`,
-- `approve` returned `{ approved: false }`,
-- `approve` threw or its promise rejected.
+The evidence field is optional. Kaji accepts it but does not expose or persist it in `@irogane/kaji@0.3.1`.
 
-The optional `evidence` on an approved decision may be retained alongside
-the execution record — use it to note what approval basis was used, such as
-an approver ID or ticket reference.
+Your application approval system must retain any evidence that it needs for audit or recovery.
 
-## Further Reading
+## Fail-closed behavior
 
-- [Execution](/docs/concepts/executor) for the full result and status
-  contract
-- [Idempotency](/docs/concepts/idempotency) for how
-  a rejected request still settles its idempotency key
+Kaji calls the capability only after an explicit `{ approved: true }` decision.
+
+Each of these cases returns `status: "rejected"`:
+
+- no approval handler is configured
+- the handler returns an invalid value
+- the handler returns `{ approved: false }`
+- the handler throws or rejects
+
+The original handler error remains available in `result.error` when applicable.
+
+## Ordering and retries
+
+Authorization runs before approval. An unauthorized request never reaches the approval handler.
+
+Kaji claims the idempotency key before approval. An identical retry returns the recorded rejection or result instead of requesting a second decision.
+
+Your application must decide how long an approval is valid. Kaji does not refresh or revoke approval evidence.

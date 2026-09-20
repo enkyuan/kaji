@@ -47,7 +47,7 @@ An invalid refund amount reaches `refundPayment()` after authorization succeeds.
 ## Authorization precedes side effects
 
 Rule:
-An authorization failure must prevent execution; Kaji provides the authorization boundary but must not become the application's IAM system.
+An authorization failure must prevent capability execution. Kaji must enforce the authorization boundary without becoming the application's IAM system.
 
 Why:
 The application owns policy, while Kaji enforces the decision before effects occur.
@@ -66,16 +66,27 @@ Missing, invalid, rejected, or failed approval cannot authorize a side effect.
 Failure example:
 Kaji executes a high-value refund because the approval provider timed out.
 
+## Application owns approval evidence
+
+Rule:
+Kaji can accept optional approval evidence, but it must not present minimal execution evidence as an approval audit record.
+
+Why:
+The application approval system owns evidence retention, access, and audit requirements.
+
+Failure example:
+An application assumes that `ExecutionStore` retained approval evidence that Kaji discarded.
+
 ## Idempotency is explicit
 
 Rule:
-A caller-supplied idempotency key must identify one intended operation, and reuse with materially different input must fail as a conflict.
+The capability, principal ID, and idempotency key must identify one intended operation. Reuse with different validated input must fail as a conflict.
 
 Why:
-A key cannot safely represent two actions.
+One execution identity cannot safely represent two actions.
 
 Failure example:
-One key first refunds $10 and later refunds $100.
+One execution identity first refunds $10 and later refunds $100.
 
 ## Duplicate execution is prevented
 
@@ -102,10 +113,12 @@ Kaji converts a network failure after a remote refund request into `failed` and 
 ## Known failure is explicit
 
 Rule:
-Kaji must classify a capability's thrown or rejected `execute` call as `unknown` by default and may only record `failed` when application code throws `knownFailure(cause)`. Kaji must never infer this classification from an error's class, message, or status code.
+Kaji must classify a thrown or rejected `execute` call as `unknown` by default. Application code can select `failed` with `knownFailure(cause)`.
+
+Kaji must never infer this classification from an error class, message, or status code.
 
 Why:
-Only application code can know whether its own side effect committed before an error surfaced; guessing from error shape risks retrying an action that already happened.
+Only application code knows whether its side effect committed before an error surfaced. Inference from the error can cause an unsafe retry.
 
 Failure example:
 Kaji treats any error whose message contains "declined" as `failed` without application code asserting that no side effect occurred.
@@ -113,7 +126,9 @@ Kaji treats any error whose message contains "declined" as `failed` without appl
 ## Cancellation is cooperative
 
 Rule:
-Kaji must use native `AbortSignal` semantics; cancellation before side-effect execution must prevent the action, while cancellation after a potentially committed external effect must not imply rollback.
+Kaji must use native `AbortSignal` semantics. Cancellation before capability execution must prevent the action.
+
+Cancellation after capability execution begins must not imply rollback.
 
 Why:
 Cancellation can stop cooperation but cannot undo an already committed remote effect.
@@ -121,21 +136,21 @@ Cancellation can stop cooperation but cannot undo an already committed remote ef
 Failure example:
 Kaji reports a sent email as unsent because its signal aborted after the provider accepted it.
 
-## Timeout is not rollback
+## Timeout is cooperative
 
 Rule:
-A timeout must mean that Kaji stopped waiting, not that a remote side effect did not happen.
+`timeoutMs` must abort the effective `AbortSignal` after the configured duration. Kaji must continue awaiting `execute()` until it settles.
 
 Why:
-Remote systems can complete after Kaji's wait ends.
+Kaji cannot forcibly stop application code. The capability or downstream API must observe the signal for the timeout to interrupt work.
 
 Failure example:
-Kaji automatically repeats a timed-out deployment as though the first deployment never started.
+Kaji describes `timeoutMs` as a wall-clock limit even though an `execute()` function that ignores the signal can later return `succeeded`.
 
 ## Evidence is minimal
 
 Rule:
-Kaji must persist only the information needed to reason about execution identity, claim, input fingerprint, status or outcome, and result or error evidence.
+The store contract must record only execution identity, claim state, input fingerprint, status, and minimal result or error evidence.
 
 Why:
 v0 needs execution evidence, not a general event-sourcing system.
@@ -157,7 +172,9 @@ Two workers both observe that a key is absent and each create a claim.
 ## Framework neutrality
 
 Rule:
-No core type or execution primitive may depend on OpenAI, Anthropic, LangGraph, Vercel AI SDK, MCP, or another agent framework.
+Core types and execution primitives must not depend on an agent framework.
+
+This restriction includes OpenAI, Anthropic, LangGraph, Vercel AI SDK, and MCP.
 
 Why:
 Kaji must govern the same capability regardless of the caller.
@@ -209,4 +226,4 @@ Callers need to distinguish a denied action, a failed action, and an ambiguous a
 Failure example:
 The API reports both a rejected approval and a possibly committed remote timeout as `failed`.
 
-Any implementation that violates an invariant must change the implementation, not weaken the invariant, unless a deliberate product decision updates this document first.
+An implementation that violates an invariant must change. Only a deliberate product decision can update an invariant.
