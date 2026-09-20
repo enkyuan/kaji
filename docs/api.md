@@ -221,12 +221,18 @@ export { capability, createKaji, knownFailure, memoryStore };
 
 export type {
   Capability,
+  ClaimResult,
+  ExecutionClaim,
   ExecutionContext,
   ExecutionEvidence,
   ExecutionRequest,
   ExecutionResult,
   ExecutionStore,
+  StoredExecution,
 };
 ```
 
-`ExecutionClaim`, `ClaimResult`, and `StoredExecution` are exported only from the store entry point. No framework adapters, implementation internals, or additional convenience APIs are part of v0.
+`ExecutionClaim`, `ClaimResult`, and `StoredExecution` are exported from the
+package root because custom stores must implement the contract. The package
+ships one public entry point; no framework adapters, implementation
+internals, or additional convenience APIs are part of v0.
