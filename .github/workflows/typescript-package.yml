@@ -1,8 +1,24 @@
 name: TypeScript package
 
+# Package checks run only when something the package depends on changes.
+# Docs-only changes are verified by the docs-site workflow instead.
 on:
   pull_request:
+    paths:
+      - "packages/ts/**"
+      - "examples/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/typescript-package.yml"
   push:
+    branches:
+      - main
+    paths:
+      - "packages/ts/**"
+      - "examples/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/typescript-package.yml"
 
 permissions:
   contents: read
