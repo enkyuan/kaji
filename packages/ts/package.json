@@ -1,6 +1,6 @@
 {
   "name": "@irogane/kaji",
-  "version": "0.3.0-rc.1",
+  "version": "0.3.0",
   "description": "Execution primitives for safely running application actions requested by AI agents.",
   "homepage": "https://kaji.build",
   "bugs": {
