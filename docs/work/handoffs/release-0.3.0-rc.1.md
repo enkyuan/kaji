@@ -1,7 +1,17 @@
 # release-0.3.0-rc.1
 
 Branch: release/0.3.0-rc.1 (merged, PR #9; main ca587fe carries the bump)
-State: BLOCKED — npmjs.com trusted publisher missing (single external action)
+State: STAGED — awaiting human inspection + 2FA approval
+
+## Staged release (run 35526812451, all steps green)
+
+- Package: @irogane/kaji@0.3.0-rc.1
+- Stage id: 4c77a58e-c50d-41e1-bf1d-3facb5eb6e57
+- Dist-tag: next
+- Artifact: irogane-kaji-0.3.0-rc.1.tgz
+- Artifact sha256: af72361e6854eca58f782f6e452bc16e8b1da0dbaa9fa31650a20f0a6cabcaff
+- Provenance: signed (sigstore transparency log index 2901819288)
+- Nothing public until `npm stage approve` (2FA, human only)
 
 ## Goal
 
@@ -34,6 +44,13 @@ Run 35523348098, Stage package step:
 configuration for @irogane/kaji. Nothing was staged; the registry is
 untouched (dist-tags still: beta + latest → 0.2.0-beta.11).
 
+## Resolution of the earlier blocker
+
+The 404 "package not found" exchange error was fixed by configuring the
+trusted publisher on npmjs.com (user, 2026-09-20). Subsequent dispatch
+run 35526812451 staged successfully; provenance was signed and recorded
+in the sigstore transparency log.
+
 ## Required human action (npmjs.com, requires npm login)
 
 Package @irogane/kaji → Settings → Trusted Publisher (GitHub Actions):
@@ -45,19 +62,15 @@ Package @irogane/kaji → Settings → Trusted Publisher (GitHub Actions):
 
 If command scoping is offered, restrict to staged publishing.
 
-Note: the GitHub Environment branch policy (deployment branches → main)
-also still reads unset via API — defense in depth only; the workflow
-already refuses non-main refs.
+## Inspection and approval (human, 2FA)
 
-## Resume (after the trusted publisher is saved)
+    npm stage list @irogane/kaji
+    npm stage view 4c77a58e-c50d-41e1-bf1d-3facb5eb6e57
+    npm stage download 4c77a58e-c50d-41e1-bf1d-3facb5eb6e57
+    shasum -a 256 <downloaded>.tgz   # must equal the artifact sha256 above
+    npm stage approve 4c77a58e-c50d-41e1-bf1d-3facb5eb6e57   # publishes
+    npm stage reject 4c77a58e-c50d-41e1-bf1d-3facb5eb6e57    # discards
 
-    gh workflow run publish.yml -R enkyuan/kaji --ref main -f channel=next
-
-Then watch the run. On success the run summary lists the stage id; inspect
-locally (npm stage list/view/download @irogane/kaji) and approve with 2FA
-per docs/playbooks/release.md (INSPECT → APPROVE). Verify with the sha256
-printed in the run summary.
-
-## Next
-
-User configures the trusted publisher; agent re-dispatches on request.
+After approval, VERIFY PUBLIC REGISTRY per docs/playbooks/release.md,
+then FINALIZE (tag v0.3.0-rc.1 on ca587fe, GitHub Release; docs install
+UI stays off until stable 0.3.0).
