@@ -1,4 +1,4 @@
-import type { ExecutionContext } from "./execution-context.ts";
+import type { ExecutionContext } from "./execution/context.ts";
 import type { InputParser } from "./schema.ts";
 
 /**

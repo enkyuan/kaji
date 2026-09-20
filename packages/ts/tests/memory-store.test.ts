@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { memoryStore } from "../src/memory-store.ts";
-import type { ExecutionClaim } from "../src/execution-store.ts";
-import type { StoredExecution } from "../src/execution-store.ts";
+import { memoryStore } from "../src/store/memory.ts";
+import type { ExecutionClaim } from "../src/store/store.ts";
+import type { StoredExecution } from "../src/store/store.ts";
 
 function claimOf(overrides: Partial<ExecutionClaim> = {}): ExecutionClaim {
   return {

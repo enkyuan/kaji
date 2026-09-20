@@ -1,6 +1,6 @@
 import { expectTypeOf } from "vitest";
 import { capability } from "../src/capability.ts";
-import type { ExecutionContext } from "../src/execution-context.ts";
+import type { ExecutionContext } from "../src/execution/context.ts";
 import type { InputParser } from "../src/schema.ts";
 
 type Refund = { paymentId: string; amount: number };

@@ -4,8 +4,8 @@ import type {
   ExecutionClaim,
   ExecutionStore,
   StoredExecution,
-} from "../src/execution-store.ts";
-import type { ExecutionEvidence } from "../src/execution-result.ts";
+} from "../src/store/store.ts";
+import type { ExecutionEvidence } from "../src/execution/result.ts";
 
 describe("ExecutionStore", () => {
   it("can be implemented by user code with only claim/record", async () => {

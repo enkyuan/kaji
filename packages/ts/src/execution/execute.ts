@@ -1,13 +1,13 @@
-import { capabilityDefinition, type Capability } from "./capability.ts";
+import { capabilityDefinition, type Capability } from "../capability.ts";
 import { resolveApproval, type ApproveHandler } from "./approval.ts";
-import { effectiveSignal } from "./effective-signal.ts";
-import type { ExecutionContext } from "./execution-context.ts";
-import type { ExecutionEvidence, ExecutionResult } from "./execution-result.ts";
-import type { ExecutionRequest } from "./execution-request.ts";
-import type { ExecutionStore } from "./execution-store.ts";
-import { fingerprintInput } from "./fingerprint.ts";
-import { KajiConfigurationError, KnownFailure } from "./errors.ts";
-import { validateInput } from "./schema.ts";
+import { effectiveSignal } from "./signal.ts";
+import type { ExecutionContext } from "./context.ts";
+import type { ExecutionEvidence, ExecutionResult } from "./result.ts";
+import type { ExecutionRequest } from "./request.ts";
+import type { ExecutionStore } from "../store/store.ts";
+import { fingerprintInput } from "../store/fingerprint.ts";
+import { KajiConfigurationError, KnownFailure } from "../errors.ts";
+import { validateInput } from "../schema.ts";
 
 export type ExecuteDependencies = {
   readonly store: ExecutionStore;

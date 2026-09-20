@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fingerprintInput, UnfingerprintableValueError } from "../src/fingerprint.ts";
+import { fingerprintInput, UnfingerprintableValueError } from "../src/store/fingerprint.ts";
 
 describe("fingerprintInput", () => {
   it("produces identical fingerprints for identical validated values", () => {
