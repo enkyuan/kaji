@@ -23,11 +23,11 @@ The name forms part of the execution identity and input fingerprint. Renaming a 
 
 ## `input`
 
-`input` must provide a `parse(input)` method. The method returns validated input or throws.
+`input` is a [Standard Schema](https://standardschema.dev) V1 schema: Zod, Valibot, ArkType, or a hand-written object exposing a `~standard` property with `version: 1` and a `validate` function. `capability()` checks this shape when you construct the capability and throws if `input` does not conform. It never calls a schema's own methods (`parse`, `safeParse`) and never runs validation at construction time.
 
-Kaji passes the parser result to `authorize`, `approval`, and `execute`. These functions never receive the original unvalidated value.
+Kaji passes the schema's validated _output_ to `authorize`, `approval`, and `execute`. These functions never receive the original unvalidated value. Invalid input rejects `kaji.execute()` with `InvalidInputError` before any claim, authorization, approval, or execution; its `issues` property carries the schema's Standard Schema issues verbatim.
 
-Kaji has no runtime dependency on Zod or another validation library.
+Kaji has no runtime dependency on Zod, Valibot, ArkType, or any other validation library.
 
 ## `authorize`
 
@@ -65,6 +65,6 @@ Throw `knownFailure(cause)` only when application code knows that no side effect
 
 ## Capability objects
 
-`capability()` validates its declaration and returns a frozen object. The public `Capability<Input, Result>` type exposes only `name`.
+`capability()` validates its declaration and returns a frozen object. The public `Capability<Output, Result>` type exposes only `name`.
 
 Kaji retains the full declaration internally. Callers execute the capability through `kaji.execute()` rather than calling its functions directly.

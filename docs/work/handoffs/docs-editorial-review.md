@@ -148,3 +148,58 @@ An independent adversarial review was run via a separate subagent session with n
 ## Next
 
 Merge `docs/editorial-review`, then open the F5 regression-test task before the next `@irogane/kaji` release.
+
+## Reconciliation: rebase onto origin/main + Standard Schema (refactor/standard-schema, PR #25)
+
+State: DONE
+New head SHA: recorded in the commit that follows this handoff update.
+
+### Rebase
+
+Rebased `docs/editorial-review` onto `origin/main` at `7b8e6ec` (merge of PR #26, "docs: align entry page installs and switch code font"). `git rebase origin/main` completed with zero conflicts; git's merge algorithm reconciled PR #26's second `InstallTabs` block (`zodCommands`) and `.entry-install { gap: 0.5rem }` in `apps/docs/src/pages/index.astro` against this branch's `description` prose edit on the same file, because the two changes touched disjoint lines. Verified post-rebase: both edits present, full check suite green, no conflict markers anywhere in the tree.
+
+### Standard Schema merge
+
+Merged `refactor/standard-schema` (commits `edef94b`, `6d3bca8`; PR #25, intentionally left unmerged pending this reconciliation) with `git merge --no-ff`. Auto-merged cleanly except `packages/ts/package.json`, where `ort` combined this branch's `description` fix with that branch's `valibot` devDependency addition — verified both survived correctly in the result.
+
+That branch replaced `capability()`'s custom `{ parse(input): Output }` input contract with Standard Schema V1 (`~standard.validate()`). `index.ts`'s export surface is unchanged; `Capability`'s second generic parameter renamed `Input` → `Output`; `capability()` and `createKaji().execute()` now key on `Schema extends StandardSchemaV1` and `SchemaOutput<Schema>` instead of a bare `Input` parameter. Zod's `z.object()` already implements `~standard` natively, so every existing Zod-based example in this branch's docs continued to work unchanged as *code*; only the prose describing the input contract's mechanism needed correction.
+
+Found and fixed one merge-adjacent lint regression: `tests/execution-failures.test.ts` (introduced by the schema refactor) declared three unused `vi.fn()` doubles and one unused `validate` parameter. Prefixed with `_` per the repo's unused-identifier convention; committed separately (`fix: prefix unused test doubles with underscore`). Confirmed this pre-existed on `refactor/standard-schema` itself, not introduced by the merge.
+
+### `.parse()` prose reconciled
+
+Every place that claimed capability input needs only a `parse(input)` method was rewritten to describe Standard Schema V1:
+
+- `README.md` / `packages/ts/README.md` (byte-identical, re-verified with `readme:check`): install-section sentence now names Standard Schema and lists Zod/Valibot/ArkType/hand-written as conforming; added one sentence on the new `InvalidInputError` rejection path in the opening summary.
+- `docs/api.md`: `capability()`'s signature now shows `Schema extends StandardSchemaV1`/`SchemaOutput<Schema>`; added prose on the `~standard` construction check, the output-type inference contract, and that `StandardSchemaV1`/`SchemaOutput`/`InvalidInputError` are internal names never exported from the package root. `createKaji().execute()`'s generic renamed `Input` → `Output` to match the real type.
+- `apps/docs/content/getting-started.mdx`: install-section sentence updated to match the README; added a sentence on `InvalidInputError` immediately after the existing validation-ordering sentence.
+- `apps/docs/content/concepts/capability.mdx`: the `## input` section fully rewritten for the `~standard` construction check, validated-output flow, and `InvalidInputError`; `Capability<Input, Result>` renamed to `Capability<Output, Result>` to match source.
+- `apps/docs/content/reference/api.mdx`: `capability()` and `createKaji().execute()` signatures rewritten to the `Schema`/`SchemaOutput` generics; added a dedicated `## InvalidInputError` section (shape verified against `packages/ts/src/schema.ts`); rewrote the closing "Public export boundary" section to list the exact nine-item export surface and explicitly state that `StandardSchemaV1`/`SchemaOutput`/`InvalidInputError` are documented but not exported (the prior wording — "the package exports only the functions and types shown on this page" — would have been contradicted by documenting three non-exported names).
+- `apps/docs/content/concepts/executor.mdx`: the pre-claim rejection sentence now names `InvalidInputError`.
+- `apps/docs/content/concepts/outcomes.mdx`: added one sentence clarifying that `InvalidInputError` and the other pre-claim rejections are not among the six result statuses, so a reader does not expect them in an `outcome.status` switch.
+- `apps/docs/content/troubleshooting.mdx`: replaced the "input parser failure" bullet with `InvalidInputError`; added a dedicated "Capability input is rejected as invalid" section and two new "Capability construction fails" entries for the schema-shape and version/validate-function construction errors, all three error strings verified verbatim against `packages/ts/src/capability.ts`.
+
+No change was needed to `docs/invariants.md` ("Validation precedes execution" and related invariants are mechanism-neutral) or to the example pages' code blocks (`getting-started.mdx`, `reference/refund-example.mdx`, README) — all pass a Zod schema directly to `input`, which conforms to Standard Schema V1 without modification.
+
+### Verification re-run after reconciliation
+
+```
+bun install --frozen-lockfile        pass
+bun run format:check                 pass (one file needed `bun run format`; re-verified clean)
+bun run lint                         pass (0 warnings, 0 errors — after the test-file fix above)
+bun run typecheck                    pass (0 errors; same pre-existing unrelated hint in base.astro)
+bun run test                         pass (11 files, 108 tests — was 88; +19 from Standard Schema protocol/inference/interop tests, now inherited)
+bun run build                        pass (17 static routes)
+bun run readme:check                 pass (root and package README byte-identical)
+bun run package:check                pass (readme:check + tsdown build + publint + attw esm-only)
+bun run package:smoke                pass
+bun run example:refund               pass (succeeded / replay / unknown / failed cases all proven; Zod schema passed directly, unmodified)
+npm pack --dry-run (packages/ts)     pass (tarball: LICENSE, 7.7kB README.md, dist/index.d.mts, dist/index.mjs, package.json)
+```
+
+`dist/index.mjs` grew 14.71kB → 16.86kB and `dist/index.d.mts` grew 9.70kB → 12.19kB, reflecting the real Standard Schema type additions from the merged refactor — expected, not a regression.
+
+### Outstanding after reconciliation
+
+- `docs/work/handoffs/standard-schema.md` (now merged into this branch) still records its own `State: REVIEW COMPLETE — PR #25 open, awaiting editorial merge...`; update its state once both branches are merged to `origin/main` and PR #25 is closed as landed via this branch, so the two handoffs do not disagree about what is still pending.
+- The F5 unsettled-claim defect (recorded above) is unaffected by the schema refactor and remains a separate follow-up task.

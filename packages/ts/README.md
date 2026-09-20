@@ -8,13 +8,15 @@ That boundary validates input, claims the execution identity, checks authorizati
 
 Kaji is a TypeScript library with zero runtime dependencies. It runs inside your application. It does not require a Kaji server, database, or control plane.
 
+Invalid capability input rejects with an `InvalidInputError` before Kaji claims, authorizes, or executes anything. Its `issues` property carries the schema's [Standard Schema](https://standardschema.dev) issues verbatim.
+
 ## Install
 
 ```bash
 npm install @irogane/kaji zod
 ```
 
-Kaji accepts any input parser with a `parse(input)` method. This example uses Zod.
+Kaji accepts any [Standard Schema](https://standardschema.dev) V1 schema as `input`. This example uses Zod, but Valibot, ArkType, and hand-written schemas work the same way.
 
 ## Minimal example
 

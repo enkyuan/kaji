@@ -45,35 +45,43 @@ const result = await kaji.execute(refund, {
 `capability()` defines one named application action. It validates input, delegates authorization and optional approval policy, and calls ordinary application code only through Kaji's executor.
 
 ```ts
-export type Capability<Input, Result> = {
+export type Capability<Output, Result> = {
   readonly name: string;
 };
 
-export function capability<Input, Result>(definition: {
+export function capability<Schema extends StandardSchemaV1, Result>(definition: {
   readonly name: string;
-  readonly input: { parse(input: unknown): Input };
+  readonly input: Schema;
   readonly authorize: (request: {
     readonly principalId: string;
-    readonly input: Input;
+    readonly input: SchemaOutput<Schema>;
   }) => boolean | Promise<boolean>;
   readonly approval?: (request: {
     readonly principalId: string;
-    readonly input: Input;
+    readonly input: SchemaOutput<Schema>;
   }) => boolean;
   readonly execute: (
-    input: Input,
+    input: SchemaOutput<Schema>,
     context: ExecutionContext,
   ) => Result | Promise<Result>;
-}): Capability<Input, Result>;
+}): Capability<SchemaOutput<Schema>, Result>;
 ```
 
-`name` is a stable, non-empty application-defined identifier. `input` needs only a parser that either returns validated input or throws. Schema libraries may adapt to that structural shape; Kaji does not select or export a schema library.
+`name` is a stable, non-empty application-defined identifier.
+
+`input` is a [Standard Schema](https://standardschema.dev) V1 schema: Zod, Valibot, ArkType, or a hand-written object exposing a `~standard` property with `version: 1` and a `validate` function. `capability()` checks this shape at construction time and rejects a schema that does not conform. Kaji never calls a schema's own methods (`parse`, `safeParse`) and never depends on a validation library; it consumes only the `~standard` protocol.
+
+`authorize`, `approval`, and `execute` receive the schema's validated *output* type, inferred as `SchemaOutput<Schema>` from the schema's `types` field. A transforming schema's output — not its input type — flows through the capability. A schema that does not declare `types` still validates correctly at runtime; only compile-time inference is unavailable.
 
 `authorize` receives validated input and returns whether the principal may execute the capability. Returning `false` denies execution. Throwing fails the execution before a side effect.
 
 `approval` is optional. Returning `true` requires approval for that request. Returning `false` does not. Approval policy is capability-specific, while the executor obtains the approval decision.
 
 `execute` is ordinary application code. It receives validated input and the per-execution context. It must use the supplied `AbortSignal` cooperatively when the underlying operation supports it.
+
+Invalid input rejects `kaji.execute()` with `InvalidInputError` before any claim, authorization, approval, or execution. Its `issues` property carries the schema's Standard Schema issues verbatim (`message`, optional `path`).
+
+`StandardSchemaV1`, `SchemaOutput`, and `InvalidInputError` are Kaji's internal names for the protocol above. None are exported from the package root; a caller writes an ordinary Standard Schema V1 schema (or uses one from Zod, Valibot, or ArkType) and never imports Kaji's internal types. `InvalidInputError` is identified by `error.name === "InvalidInputError"` and its `issues` property, not by an exported class.
 
 ## Kaji executor
 
@@ -92,8 +100,8 @@ export function createKaji(options: {
     | Promise<{ readonly approved: boolean; readonly evidence?: unknown }>;
   readonly timeoutMs?: number;
 }): {
-  execute<Input, Result>(
-    capability: Capability<Input, Result>,
+  execute<Output, Result>(
+    capability: Capability<Output, Result>,
     request: ExecutionRequest,
   ): Promise<ExecutionResult<Result>>;
 };

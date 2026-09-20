@@ -3,7 +3,7 @@
 Branch: refactor/standard-schema
 Base SHA: 21b40c3fd51d4ddb7ebc97e00ae26691f19b96d5 (origin/main at task start)
 Head SHA: edef94b (PR #25 https://github.com/enkyuan/kaji/pull/25, intentionally unmerged)
-State: REVIEW COMPLETE — PR #25 open, awaiting editorial merge, docs reconciliation, and explicit approval before merge
+State: MERGED — merged into docs/editorial-review at reconciliation; PR #25's code and this handoff both landed there. `.parse()`/InputParser prose across README.md, packages/ts/README.md, docs/api.md, and apps/docs content was rewritten for Standard Schema in that branch's own handoff (docs/work/handoffs/docs-editorial-review.md, "Reconciliation" section). This branch (refactor/standard-schema) itself remains unmerged and can be deleted once docs/editorial-review lands on origin/main.
 
 ## Goal
 
@@ -136,12 +136,16 @@ vendor errors); validateInput does not forward `options` (optional param).
 
 ## Remaining
 
-- docs reconciliation after docs/editorial-review merges (see above)
-- release/versioning decision (explicitly out of scope here)
-- adversarial review verdict recorded below when complete
+- release/versioning decision (explicitly out of scope here) — the input
+  contract break (`.parse()`-only schemas now rejected) still needs an
+  explicit semver decision before the next package release.
+- Deleting the now-redundant `refactor/standard-schema` branch and closing
+  PR #25 once `docs/editorial-review` lands on `origin/main`.
 
 ## Next
 
-Collect adversarial review; resolve findings; simplification pass; commit,
-push, open PR; leave UNMERGED pending editorial merge + full docs
-reconciliation + explicit approval.
+Docs reconciliation is complete (see docs/work/handoffs/docs-editorial-review.md,
+"Reconciliation" section, on docs/editorial-review). That branch carries this
+one's code and handoff forward. Land docs/editorial-review, then make the
+release/versioning decision before publishing a package version with this
+input contract.

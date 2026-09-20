@@ -6,7 +6,7 @@ Task: `docs/editorial-review`
 - Owner: implementation
 - Branch: `docs/editorial-review`
 - Worktree: `/Users/enkyuan/Desktop/Projects/kaji-wt/consolidate-main`
-- Base SHA: `21b40c3fd51d4ddb7ebc97e00ae26691f19b96d5`
+- Base SHA: `21b40c3fd51d4ddb7ebc97e00ae26691f19b96d5` (rebased onto `origin/main` at `7b8e6ec`, then merged with `refactor/standard-schema` at reconciliation; see below)
 - Goal: Make the root README canonical and rewrite every public documentation page for accuracy, clarity, and scanability.
 - Package source diff: none allowed
 - Public API diff: none allowed
@@ -64,5 +64,12 @@ The public result statuses are `succeeded`, `denied`, `rejected`, `failed`, `can
 
 1. Open a separate `fix/` task for the F5 unsettled-claim defect (thrown `approval()` predicate leaves the execution claim unsettled) with a failing regression test, before the next package release.
 2. Optional follow-up outside this task's scope: align `docs/product.md`'s one-sentence definition with the unhedged, mechanism-first language used in the corrected public surfaces.
+3. Make the release/versioning decision for the Standard Schema input-contract break (recorded in `docs/work/handoffs/standard-schema.md`) before publishing a new package version.
 
-Independent adversarial review completed via subagent; all material findings resolved (fixed or reviewed-and-retained with justification). See `docs/work/handoffs/docs-editorial-review.md` for the full disposition. Task moved to `DONE`; ready to commit and merge.
+Independent adversarial review completed via subagent; all material findings resolved (fixed or reviewed-and-retained with justification). See `docs/work/handoffs/docs-editorial-review.md` for the full disposition.
+
+## Reconciliation with origin/main and refactor/standard-schema
+
+Rebased onto `origin/main` at `7b8e6ec` (PR #26's homepage install/codeblock change) with zero conflicts. Merged `refactor/standard-schema` (PR #25, edef94b/6d3bca8) so `capability()`'s input contract source of truth is Standard Schema V1. Rewrote every `.parse(input)`-contract claim across README.md, packages/ts/README.md, docs/api.md, and the affected apps/docs pages (getting-started, concepts/capability, concepts/executor, concepts/outcomes, reference/api, troubleshooting) to describe `~standard`/`validate()`/`SchemaOutput`/`InvalidInputError`. Full detail in `docs/work/handoffs/docs-editorial-review.md`'s "Reconciliation" section.
+
+Test suite now reports 108 passing tests (was 88; +19 from the merged Standard Schema protocol/inference/interop coverage). All other verification commands re-run and pass. Task remains `DONE`; ready to commit and merge.

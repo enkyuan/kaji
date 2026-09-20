@@ -24,6 +24,8 @@ export type ExecutionResult<Result> =
     };
 ```
 
+`kaji.execute()` rejects instead of resolving to one of these six statuses when it cannot establish the execution boundary at all — invalid `principalId` or `idempotencyKey`, invalid capability input (`InvalidInputError`), or a `store.claim()` failure. No claim exists yet in these cases, so there is no result to classify.
+
 ## `succeeded`
 
 The capability returned a result, and the store recorded that result.

@@ -15,6 +15,18 @@ Give every capability a stable, non-empty name. Kaji checks the name when you cr
 
 Define `authorize` for every capability. Kaji has no default authorization policy.
 
+### `capability() requires input to be a Standard Schema (missing "~standard" property).`
+
+`input` must be a [Standard Schema](https://standardschema.dev) V1 schema. Zod, Valibot, and ArkType schemas conform natively. A hand-written schema needs a `~standard` property with `version: 1` and a `validate` function.
+
+### `capability() input schema must implement Standard Schema version 1.`
+
+The schema's `~standard.version` is not `1`. Kaji only supports Standard Schema V1.
+
+### `capability() input schema must provide a "~standard.validate" function.`
+
+The schema's `~standard` object is missing a callable `validate` function.
+
 ## `kaji.execute()` rejects before returning a result
 
 Kaji can reject before it establishes an execution claim.
@@ -23,10 +35,16 @@ Common causes include:
 
 - an empty `principalId`
 - an empty `idempotencyKey`
-- input parser failure
+- invalid capability input (`InvalidInputError`)
 - `store.claim()` failure
 
 Kaji does not call authorization, approval, or capability execution after one of these failures.
+
+## Capability input is rejected as invalid
+
+Kaji rejects with `InvalidInputError` (`error.name === "InvalidInputError"`) when the capability's schema reports issues. Its `issues` property carries the schema's Standard Schema issues verbatim.
+
+This happens before any claim, authorization, approval, or execution. Fix the input or the schema; Kaji does not call the capability.
 
 ## A retry returns the previous result
 

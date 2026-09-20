@@ -9,7 +9,7 @@ description: Install Kaji, define a capability, execute it, and handle the resul
 npm install @irogane/kaji zod
 ```
 
-Kaji accepts any parser with a `parse(input)` method. This guide uses Zod.
+Kaji accepts any [Standard Schema](https://standardschema.dev) V1 schema as `input`. This guide uses Zod, but Valibot, ArkType, and hand-written schemas work the same way.
 
 ## Define a capability
 
@@ -35,7 +35,7 @@ const refundPayment = capability({
 });
 ```
 
-Kaji validates `input` before it calls `authorize` or `execute`.
+Kaji validates `input` before it calls `authorize` or `execute`. Invalid input rejects `kaji.execute()`'s promise with `InvalidInputError` instead of resolving to a status; no claim, authorization, approval, or execution happens.
 
 ## Create the executor
 

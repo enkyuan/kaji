@@ -28,26 +28,32 @@ import {
 Defines one named application action.
 
 ```ts
-function capability<Input, Result>(definition: {
+function capability<Schema extends StandardSchemaV1, Result>(definition: {
   readonly name: string;
-  readonly input: { parse(input: unknown): Input };
+  readonly input: Schema;
   readonly authorize: (request: {
     readonly principalId: string;
-    readonly input: Input;
+    readonly input: SchemaOutput<Schema>;
   }) => boolean | Promise<boolean>;
-  readonly approval?: (request: { readonly principalId: string; readonly input: Input }) => boolean;
-  readonly execute: (input: Input, context: ExecutionContext) => Result | Promise<Result>;
-}): Capability<Input, Result>;
+  readonly approval?: (request: {
+    readonly principalId: string;
+    readonly input: SchemaOutput<Schema>;
+  }) => boolean;
+  readonly execute: (
+    input: SchemaOutput<Schema>,
+    context: ExecutionContext,
+  ) => Result | Promise<Result>;
+}): Capability<SchemaOutput<Schema>, Result>;
 ```
 
-`input.parse()` returns validated input or throws. Kaji does not require a specific schema library.
+`input` is a [Standard Schema](https://standardschema.dev) V1 schema: Zod, Valibot, ArkType, or a hand-written object exposing a `~standard` property with `version: 1` and a `validate` function. `capability()` checks this shape at construction and throws if `input` does not conform; it never calls a schema's own methods and never runs validation at construction time. Kaji does not require a specific schema library.
 
-`authorize` and `approval` receive validated input. Callers use the Kaji executor to invoke `execute`.
+`authorize`, `approval`, and `execute` receive the schema's validated output, inferred as `SchemaOutput<Schema>` from the schema's `types` field. `StandardSchemaV1` and `SchemaOutput` are Kaji's internal names for this protocol; neither is exported from the package root, so a caller never imports them directly.
 
 ## `Capability`
 
 ```ts
-export type Capability<Input, Result> = {
+export type Capability<Output, Result> = {
   readonly name: string;
 };
 ```
@@ -71,8 +77,8 @@ function createKaji(options: {
     | Promise<{ readonly approved: boolean; readonly evidence?: unknown }>;
   readonly timeoutMs?: number;
 }): {
-  execute<Input, Result>(
-    capability: Capability<Input, Result>,
+  execute<Output, Result>(
+    capability: Capability<Output, Result>,
     request: ExecutionRequest,
   ): Promise<ExecutionResult<Result>>;
 };
@@ -148,6 +154,19 @@ This is minimal execution evidence. It is not a business audit record.
 
 A pre-claim `cancelled` result has empty `executionId` and `inputFingerprint` values because no claim exists.
 
+## `InvalidInputError`
+
+```ts
+class InvalidInputError extends Error {
+  readonly issues: ReadonlyArray<{
+    readonly message: string;
+    readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
+  }>;
+}
+```
+
+`kaji.execute()` rejects with this error when the capability's schema reports issues. It is not exported from the package root; identify it with `error.name === "InvalidInputError"`. Its `issues` property carries the schema's Standard Schema issues verbatim, before any claim, authorization, approval, or execution.
+
 ## `knownFailure()`
 
 ```ts
@@ -213,4 +232,20 @@ Returns a process-local reference store. It has no persistence, cross-process vi
 
 ## Public export boundary
 
-The package exports only the functions and types shown on this page. It does not export framework adapters or implementation internals.
+```ts
+export { capability, createKaji, knownFailure, memoryStore };
+
+export type {
+  Capability,
+  ClaimResult,
+  ExecutionClaim,
+  ExecutionContext,
+  ExecutionEvidence,
+  ExecutionRequest,
+  ExecutionResult,
+  ExecutionStore,
+  StoredExecution,
+};
+```
+
+These are the only values and types the package root exports. `StandardSchemaV1`, `SchemaOutput`, and `InvalidInputError` are documented above because they describe observable behavior — the shape `input` must satisfy and the error `kaji.execute()` can reject with — but none of the three is exported. A caller identifies `InvalidInputError` by `error.name`, not by an imported class, and writes an ordinary Standard Schema V1 schema without importing Kaji's internal types. The package does not export framework adapters or other implementation internals.

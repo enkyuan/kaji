@@ -28,7 +28,7 @@ export type ExecutionRequest = {
 
 The caller supplies all request fields. `principalId` and `idempotencyKey` must be non-empty strings.
 
-Invalid metadata or invalid capability input rejects before Kaji creates a store claim. Kaji does not call authorization, approval, or capability execution in this case.
+Invalid metadata or invalid capability input rejects before Kaji creates a store claim. Invalid input surfaces as `InvalidInputError`, carrying the schema's Standard Schema issues. Kaji does not call authorization, approval, or capability execution in this case.
 
 ## Order
 
