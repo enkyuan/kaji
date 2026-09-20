@@ -1,7 +1,7 @@
 # release-0.3.0-rc.1
 
-Branch: release/0.3.0-rc.1 (merged, PR #9; main ca587fe carries the bump)
-State: STAGED — awaiting human inspection + 2FA approval
+Branch: release/0.3.0-rc.1 (merged, PR #9; release source cd8b2b7)
+State: DONE — published 2026-09-20 on dist-tag next; tag v0.3.0-rc.1; GitHub Release created
 
 ## Staged release (run 35526812451, all steps green)
 
@@ -12,6 +12,13 @@ State: STAGED — awaiting human inspection + 2FA approval
 - Artifact sha256: af72361e6854eca58f782f6e452bc16e8b1da0dbaa9fa31650a20f0a6cabcaff
 - Provenance: signed (sigstore transparency log index 2901819288)
 - Nothing public until `npm stage approve` (2FA, human only)
+- APPROVAL: maintainer verified the downloaded stage sha256 against the
+  run summary, then approved with 2FA. Post-publish registry verification:
+  dist-tags next → 0.3.0-rc.1 (latest unchanged at 0.2.0-beta.11),
+  dist.integrity matches the CI artifact, clean-install consumer smoke
+  passed all four outcome semantics (fresh succeeded, duplicate replay
+  recorded without re-execution, knownFailure → failed, unrecognized
+  throw → unknown).
 
 ## Goal
 

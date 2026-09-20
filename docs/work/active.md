@@ -1,8 +1,8 @@
 # Active work
 
-Goal: Add npm release infrastructure for @irogane/kaji (trusted publishing, version selection, publish sequence).
-Reference: docs/work/handoffs/release-readiness.md
+Goal: Complete the first public release of @irogane/kaji (0.3.0-rc.1 staged, approved, published) and prepare the stable 0.3.0 release.
+Reference: docs/work/handoffs/release-0.3.0-rc.1.md
 Owner: release
-State: READY (release-readiness audit complete; artifact proven correct)
+State: DONE for 0.3.0-rc.1 (published 2026-09-20; dist-tag next; registry consumer smoke verified)
 Started: 2026-09-20
-Exit condition: package published from CI via trusted publishing with correct version; README and site install commands truthful; nothing published before infra is verified.
+Exit condition: rc.1 published and verified — MET. Next: release/0.3.0 (stable on latest), then docs/npm-live (enable install UI).
