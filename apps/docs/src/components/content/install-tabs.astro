@@ -8,27 +8,20 @@
  * while different pages keep independent selections. The first entry of
  * `commands` is the server-rendered default, so the command is truthful
  * without JavaScript.
- *
- * `groups` renders several command lines under ONE tab row (the docs
- * `Tabs` pattern): each group is one command line, all following the same
- * selected manager.
  */
 interface Props {
-  commands?: Record<string, string>;
-  groups?: Array<Record<string, string>>;
+  commands: Record<string, string>;
   label?: string;
 }
 
-const { commands, groups: commandGroups, label = "Package manager" } = Astro.props;
-const groups = commandGroups ?? (commands ? [commands] : []);
-if (groups.length === 0) throw new Error("InstallTabs requires commands or groups");
-const managers = Object.keys(groups[0]!);
+const { commands, label = "Package manager" } = Astro.props;
+const managers = Object.keys(commands);
 ---
 
 <div
   class="install-tabs"
   data-package-manager-tabs
-  data-install-commands={JSON.stringify(groups)}
+  data-install-commands={JSON.stringify(commands)}
 >
   <div class="tab-list" role="tablist" aria-label={label}>
     {
@@ -45,13 +38,7 @@ const managers = Object.keys(groups[0]!);
       ))
     }
   </div>
-  {
-    groups.map((group) => (
-      <pre data-install-command>
-        <code>{group[managers[0]!]}</code>
-      </pre>
-    ))
-  }
+  <pre data-install-command><code>{commands[managers[0]]}</code></pre>
 </div>
 
 <script>
@@ -67,20 +54,16 @@ const managers = Object.keys(groups[0]!);
 
     const selectEverywhere = (manager: string) => {
       for (const container of containers) {
-        let groups: Array<Record<string, string>> = [];
+        let commands: Record<string, string> = {};
         try {
-          const parsed: unknown = JSON.parse(container.dataset.installCommands ?? "[]");
-          groups = Array.isArray(parsed) ? (parsed as Array<Record<string, string>>) : [];
+          commands = JSON.parse(container.dataset.installCommands ?? "{}");
         } catch {
           continue;
         }
-        const codes = container.querySelectorAll<HTMLElement>("[data-install-command] code");
-        codes.forEach((code, index) => {
-          const group = groups[index];
-          if (group !== undefined && group[manager] !== undefined) {
-            code.textContent = group[manager];
-          }
-        });
+        const code = container.querySelector<HTMLElement>("[data-install-command] code");
+        if (code !== null && commands[manager] !== undefined) {
+          code.textContent = commands[manager];
+        }
         for (const button of container.querySelectorAll<HTMLButtonElement>(
           "[data-package-manager]",
         )) {

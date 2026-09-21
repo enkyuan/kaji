@@ -7,15 +7,9 @@ const wordmark = figlet.textSync("KAJI", { font: "Alligator" });
 const wordmarkColumns = Math.max(...wordmark.split("\n").map((line) => line.length));
 
 const installCommands = {
-  npm: "npm install @irogane/kaji",
-  bun: "bun add @irogane/kaji",
-  pnpm: "pnpm add @irogane/kaji",
-} as const;
-
-const zodCommands = {
-  npm: "npm install zod",
-  bun: "bun add zod",
-  pnpm: "pnpm add zod",
+  npm: "npm install @irogane/kaji zod",
+  bun: "bun add @irogane/kaji zod",
+  pnpm: "pnpm add @irogane/kaji zod",
 } as const;
 ---
 
@@ -85,7 +79,7 @@ const zodCommands = {
 
     <div class="entry-install doc-content">
       <div class="entry-install-frame">
-        <InstallTabs groups={[installCommands, zodCommands]} />
+        <InstallTabs commands={installCommands} />
       </div>
     </div>
 
