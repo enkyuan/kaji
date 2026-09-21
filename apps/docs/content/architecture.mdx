@@ -52,7 +52,7 @@ A denied, rejected, or cancelled request prevents capability execution. Kaji rec
 
 Claiming the idempotency key happens before authorization. This order makes retries of a denied or rejected request return the same stored result.
 
-## After capability execution begins
+## Post-execution
 
 After Kaji calls `execute`, an external side effect can start. A normal thrown error cannot prove whether that side effect committed.
 

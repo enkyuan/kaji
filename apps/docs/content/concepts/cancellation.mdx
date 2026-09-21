@@ -30,7 +30,7 @@ When the signal is already aborted at one of these checks, Kaji returns `cancell
 
 Cancellation before the store claim has no execution record. Cancellation after the claim is recorded when the store remains available.
 
-## After capability execution begins
+## Post-execution
 
 After Kaji calls `execute()`, cancellation is cooperative. Kaji cannot forcibly terminate application code or a remote request.
 
