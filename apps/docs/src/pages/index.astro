@@ -85,10 +85,7 @@ const zodCommands = {
 
     <div class="entry-install doc-content">
       <div class="entry-install-frame">
-        <InstallTabs commands={installCommands} />
-      </div>
-      <div class="entry-install-frame">
-        <InstallTabs commands={zodCommands} label="Zod package manager" />
+        <InstallTabs groups={[installCommands, zodCommands]} />
       </div>
     </div>
 
@@ -264,7 +261,6 @@ const zodCommands = {
   .entry-install {
     display: grid;
     width: 100%;
-    gap: 0.5rem;
     animation-delay: 760ms;
   }
 
