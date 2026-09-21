@@ -78,9 +78,7 @@ const installCommands = {
     </div>
 
     <div class="entry-install doc-content">
-      <div class="entry-install-frame">
-        <InstallTabs commands={installCommands} />
-      </div>
+      <InstallTabs commands={installCommands} />
     </div>
 
     <div class="entry-actions">
@@ -256,53 +254,6 @@ const installCommands = {
     display: grid;
     width: 100%;
     animation-delay: 760ms;
-  }
-
-  /*
-   * The install notice renders as one bordered surface: the frame owns the
-   * single border instead of the notice sitting in a detached codeblock.
-   */
-  .entry-install-frame {
-    width: 100%;
-    overflow: hidden;
-    border: 1px solid var(--line-subtle);
-    border-radius: 8px;
-    background: var(--surface-muted);
-  }
-
-  /* The command line now renders inside <InstallTabs> (a child component),
-   * so :global is required for this scoped stylesheet to reach it. */
-  .entry-install-frame :global([data-install-command]) {
-    margin: 0;
-    /* Tighter than the docs panels (0.875rem) and equal to the docs tab
-     * row's vertical rhythm: a one-line notice does not need document-panel
-     * height. !important is needed to beat .doc-content pre's !important
-     * shorthand. */
-    padding: 0.55rem 1rem !important;
-    border: 0;
-    border-radius: 0;
-  }
-
-  /* The copy-script wraps the command line in a runtime-created .code-frame
-   * (margin + border + radius + copy button). Inside the tab frame that
-   * reads as an inset box, so flatten it into the frame's own code panel:
-   * the frame owns the single border, the panel edge below the tabs stays
-   * square, and the frame's border-radius clips the bottom corners.
-   * :global is required because the wrapper is created by client script and
-   * never receives this component's Astro scope attribute, so a scoped
-   * selector would not match it. */
-  .entry-install-frame :global(.code-frame) {
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  /* Center the copy button in the short panel: the global top: 0.55rem
-   * offset assumes the taller docs code blocks. 14px is half the 28px
-   * button height. */
-  .entry-install-frame :global(.code-frame .code-copy) {
-    top: calc(50% - 14px);
   }
 
   .entry-actions {
