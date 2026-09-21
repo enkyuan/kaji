@@ -28,7 +28,7 @@ export const navigation: NavigationSection[] = [
       { href: "/docs/concepts/outcomes", label: "Outcomes" },
       { href: "/docs/concepts/idempotency", label: "Idempotency" },
       { href: "/docs/concepts/stores", label: "Stores" },
-      { href: "/docs/concepts/cancellation", label: "Timeout and Cancellation" },
+      { href: "/docs/concepts/cancellation", label: "Cancellation" },
     ],
   },
   {
