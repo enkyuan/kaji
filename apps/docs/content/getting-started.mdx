@@ -3,11 +3,17 @@ title: Getting started
 description: Install Kaji, define a capability, execute it, and handle the result.
 ---
 
+import InstallTabs from "../src/components/content/install-tabs.astro";
+
 ## Install
 
-```bash
-npm install @irogane/kaji zod
-```
+<InstallTabs
+  commands={{
+    npm: "npm install @irogane/kaji zod",
+    bun: "bun add @irogane/kaji zod",
+    pnpm: "pnpm add @irogane/kaji zod",
+  }}
+/>
 
 Kaji accepts any [Standard Schema](https://standardschema.dev) V1 schema as `input`. This guide uses Zod, but Valibot, ArkType, and hand-written schemas work the same way.
 
