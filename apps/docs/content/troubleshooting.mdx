@@ -27,7 +27,7 @@ The schema's `~standard.version` is not `1`. Kaji only supports Standard Schema 
 
 The schema's `~standard` object is missing a callable `validate` function.
 
-## `kaji.execute()` rejects before returning a result
+## `kaji.execute()` rejections
 
 Kaji can reject before it establishes an execution claim.
 
@@ -40,13 +40,13 @@ Common causes include:
 
 Kaji does not call authorization, approval, or capability execution after one of these failures.
 
-## Capability input is rejected as invalid
+## Invalid input
 
 Kaji rejects with `InvalidInputError` (`error.name === "InvalidInputError"`) when the capability's schema reports issues. Its `issues` property carries the schema's Standard Schema issues verbatim.
 
 This happens before any claim, authorization, approval, or execution. Fix the input or the schema; Kaji does not call the capability.
 
-## A retry returns the previous result
+## Retry replays
 
 An identical execution claim returns its pending or recorded result. Kaji does not call the capability again.
 
@@ -60,7 +60,7 @@ The validated input fingerprint must also match.
 
 For a new operation under the same capability and principal, use a new idempotency key.
 
-## A retry returns a `failed` conflict
+## Retry conflicts
 
 Kaji returns a conflict when the same execution identity has a different validated input fingerprint.
 
@@ -72,13 +72,13 @@ Use the original input for a retry. Use a new idempotency key for a new operatio
 
 The same idempotency key can identify separate executions under a different capability or principal.
 
-## The result is `denied`
+## `denied` result
 
 `authorize` returned `false` or threw. Kaji did not call the capability.
 
 Inspect the application authorization policy. Kaji does not explain or replace that policy.
 
-## The result is `rejected`
+## `rejected` result
 
 The request required approval, but Kaji did not receive a valid approval.
 
@@ -91,7 +91,7 @@ Check these cases:
 
 All four cases prevent capability execution.
 
-## The result is `failed`
+## `failed` result
 
 `failed` is a definitive failure for the governed request.
 
@@ -99,7 +99,7 @@ Current cases include an idempotency conflict and an explicit `knownFailure(caus
 
 The status does not state whether the error is retryable or permanent. The application owns that policy.
 
-## Capability errors return `unknown`
+## Errors return `unknown`
 
 Kaji treats a normal thrown or rejected `execute()` call as `unknown`. It cannot infer whether the side effect committed before the error surfaced.
 
@@ -121,7 +121,7 @@ execute: async (input, context) => {
 
 Kaji does not infer known failure from an error class, message, or status code.
 
-## I want to retry `unknown`
+## Retrying `unknown`
 
 Do not blindly retry. The original side effect can already have committed.
 
@@ -131,7 +131,7 @@ Calling Kaji again with an identical claim returns the recorded `unknown`. It do
 
 Use a new idempotency key only after you prove that a new operation is safe.
 
-## Cancellation did not stop the capability
+## Cooperative cancellation
 
 Cancellation is cooperative. Kaji cannot forcibly terminate `execute()` or a remote request.
 
@@ -139,7 +139,7 @@ Pass `context.signal` to downstream APIs. Custom capability code must also obser
 
 If `execute()` ignores the signal and later resolves, Kaji can return `succeeded`.
 
-## `timeoutMs` elapsed, but Kaji still waited
+## `timeoutMs` semantics
 
 This is the shipped behavior. `timeoutMs` aborts the effective `context.signal` after the configured duration.
 
@@ -149,7 +149,7 @@ For the timeout to interrupt work, the capability or downstream API must observe
 
 If `execute()` rejects after the abort, Kaji applies normal post-start ambiguity rules and returns `unknown`.
 
-## The remote operation continued after an abort
+## Remote work continued
 
 An abort does not imply rollback. It does not prove that a remote system stopped or rejected the operation.
 
@@ -167,7 +167,7 @@ Kaji returns `status: "unknown"`. A side effect can already have committed, but 
 
 Inspect the store before you retry or create a new operation.
 
-## `memoryStore()` loses records
+## `memoryStore()` volatility
 
 `memoryStore()` is process-local and non-durable. It loses all claims and outcomes when the process exits.
 

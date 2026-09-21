@@ -21,7 +21,7 @@ Kaji validates input, claims an idempotency key, checks authorization, requests 
 
 Kaji applies this order every time. Callers cannot select a different order through the public API.
 
-## What your application owns
+## Application ownership
 
 Your application defines each capability. It also owns caller identity, authorization policy, approval policy, the production store, provider calls, and recovery for `unknown` results.
 
@@ -40,7 +40,7 @@ Every governed request returns one of six statuses:
 
 Read [Outcomes](/docs/concepts/outcomes) before you add retries or recovery logic.
 
-## Guarantees depend on the store
+## Store-dependent guarantees
 
 The configured `ExecutionStore` coordinates claims and recorded outcomes.
 

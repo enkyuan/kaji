@@ -7,7 +7,7 @@ Approval adds an application-owned decision between authorization and capability
 
 Kaji does not provide an approval interface, identity system, inbox, policy engine, or notification service.
 
-## Mark requests that need approval
+## Marking requests
 
 Add an `approval` predicate to the capability:
 
@@ -25,7 +25,7 @@ The predicate receives validated input and `principalId`. It returns `true` or `
 
 When the predicate returns `false`, Kaji continues without an approval request.
 
-## Supply the approval handler
+## Approval handler
 
 Configure `approve` on the executor:
 
