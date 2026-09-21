@@ -615,6 +615,13 @@ a.nav-link:hover {
   margin-top: 2rem;
 }
 
+/* A heading can open the content directly (Getting started has no intro
+ * paragraph). Suppress its section gap so it does not stack on the article
+ * header's padding. */
+.doc-content > h2:first-child {
+  margin-top: 0;
+}
+
 .doc-content > h3 {
   margin-top: 1.35rem;
   margin-bottom: 0.4rem;
