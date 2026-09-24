@@ -118,7 +118,11 @@ Also verify: a duplicate replay returns the recorded outcome,
 
 ## FINALIZE
 
-1. Tag the exact release commit: `git tag v<version> <source-sha> && git push origin v<version>`.
+1. Tag the exact release commit with a signed annotated tag:
+   `git tag -s v<version> <source-sha>`. Confirm the signature with
+   `git tag -v v<version>` (must report a good signature), then
+   `git push origin v<version>`. Unsigned or unverified tags are a defect;
+   the repository sets `tag.gpgsign true` so plain `git tag` also signs.
 2. Create the GitHub Release for the tag; attach the staged tarball sha256.
 3. Stable releases only: enable the docs install UI (homepage install
    command, header npm link, getting-started install, README install
@@ -140,6 +144,8 @@ Also verify: a duplicate replay returns the recorded outcome,
 ## Invariants
 
 - CI never publishes. The workflow's final action is `npm stage publish`.
+- Every release tag is a GPG-signed annotated tag, verified locally with
+  `git tag -v` before push; GitHub must show it as Verified.
 - No npm token exists in the repository, CI, or docs. Staging authenticates
   with OIDC through the `npm-release` environment.
 - Staging runs only from `main`, one release at a time, never concurrent.
