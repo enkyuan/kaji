@@ -14,7 +14,7 @@ export const navigation: NavigationSection[] = [
     label: "Start",
     items: [
       { href: "/introduction", label: "Introduction" },
-      { href: "/docs/getting-started", label: "Getting Started" },
+      { href: "/docs/getting-started", label: "Getting started" },
       { href: "/docs/architecture", label: "Architecture" },
     ],
   },
@@ -34,8 +34,8 @@ export const navigation: NavigationSection[] = [
   {
     label: "Reference",
     items: [
-      { href: "/docs/reference/api", label: "API Reference" },
-      { href: "/docs/reference/refund-example", label: "Refund Example" },
+      { href: "/docs/reference/api", label: "API reference" },
+      { href: "/docs/reference/refund-example", label: "Refund example" },
     ],
   },
   {
